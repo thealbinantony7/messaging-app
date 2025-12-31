@@ -176,6 +176,16 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
     const startPos = useRef<{ x: number, y: number } | null>(null);
     const isLongPress = useRef(false);
 
+    // Cleanup touch timer on unmount
+    useEffect(() => {
+        return () => {
+            if (touchTimer.current) {
+                clearTimeout(touchTimer.current);
+                touchTimer.current = null;
+            }
+        };
+    }, []);
+
     const handleTouchStart = (e: React.TouchEvent) => {
         if (e.touches.length === 0) return;
         isLongPress.current = false;
@@ -257,12 +267,21 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                         </button>
                     )}
                     {isOwn && !isDeleted && (
-                        <button onClick={handleDelete} className="menu-item" style={{
-                            display: 'flex', alignItems: 'center', gap: '8px',
-                            width: '100%', padding: '12px', background: 'transparent',
-                            border: 'none', color: '#ff4444', cursor: 'pointer', fontSize: '14px',
-                            textAlign: 'left', minHeight: '44px'
-                        }}>
+                        <button
+                            onClick={handleDelete}
+                            onTouchEnd={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleDelete();
+                            }}
+                            className="menu-item"
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                width: '100%', padding: '12px', background: 'transparent',
+                                border: 'none', color: '#ff4444', cursor: 'pointer', fontSize: '14px',
+                                textAlign: 'left', minHeight: '44px'
+                            }}
+                        >
                             <Trash2 size={16} /> Delete
                         </button>
                     )}

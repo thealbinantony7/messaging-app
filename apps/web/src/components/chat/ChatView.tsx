@@ -70,6 +70,23 @@ export function ChatView({ conversationId }: Props) {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [conversationMessages.length, pending.length, conversationId]);
 
+    // Mark messages as read when viewing conversation
+    useEffect(() => {
+        if (!conversationMessages.length || !user) return;
+
+        // Get the last message that's not from the current user
+        const lastOtherMessage = [...conversationMessages]
+            .reverse()
+            .find(msg => msg.senderId !== user.id);
+
+        if (lastOtherMessage) {
+            // Mark as read via WebSocket
+            import('../../lib/ws').then(({ wsClient }) => {
+                wsClient.markRead(conversationId, lastOtherMessage.id);
+            });
+        }
+    }, [conversationMessages, conversationId, user]);
+
     // Auto-resize textarea
     useEffect(() => {
         if (inputRef.current) {
