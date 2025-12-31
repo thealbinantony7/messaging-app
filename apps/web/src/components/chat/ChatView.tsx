@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { ArrowLeft, MoreVertical, Search, Paperclip, Mic, Send, Smile, Sparkles, Link } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Search, Image, Mic, Send, Smile, Sparkles, Link } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUIStore } from '../../stores/ui';
 import { useChatStore } from '../../stores/chat';
@@ -324,8 +324,47 @@ export function ChatView({ conversationId }: Props) {
                     </div>
                 ) : (
                     <>
-                        <button className="chat-input-btn" aria-label="Attach file">
-                            <Paperclip size={20} />
+                        <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            id="image-upload"
+                            onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+
+                                const formData = new FormData();
+                                formData.append('file', file);
+
+                                try {
+                                    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/upload/image`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+                                        },
+                                        body: formData
+                                    });
+
+                                    if (!response.ok) throw new Error('Upload failed');
+
+                                    const { url } = await response.json();
+
+                                    // Send image message
+                                    sendMessage(conversationId, url, 'image');
+
+                                    // Reset input
+                                    e.target.value = '';
+                                } catch (error) {
+                                    console.error('Image upload failed:', error);
+                                }
+                            }}
+                        />
+                        <button
+                            className="chat-input-btn"
+                            aria-label="Send image"
+                            onClick={() => document.getElementById('image-upload')?.click()}
+                        >
+                            <Image size={20} />
                         </button>
 
                         <div className="chat-input-wrapper">

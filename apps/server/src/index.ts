@@ -4,6 +4,7 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
+import multipart from '@fastify/multipart';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { authRoutes } from './routes/auth.js';
@@ -45,6 +46,8 @@ await app.register(rateLimit, {
 });
 
 await app.register(websocket);
+
+await app.register(multipart);
 
 // Health check
 app.get('/health', async () => {

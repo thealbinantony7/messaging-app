@@ -1,20 +1,16 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { createClient } from '@supabase/supabase-js';
 import type { GetUploadUrlRequest, GetUploadUrlResponse } from '@linkup/shared';
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
-const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
-const MAX_VOICE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
-const ALLOWED_VOICE_TYPES = ['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/mpeg'];
 
-const uploadUrlSchema = z.object({
-    filename: z.string().max(255),
-    mimeType: z.string(),
-    sizeBytes: z.number().positive(),
-});
+const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY!
+);
 
 export const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     // Auth middleware
@@ -26,53 +22,44 @@ export const uploadRoutes: FastifyPluginAsync = async (fastify) => {
         }
     });
 
-    // Get pre-signed upload URL
-    fastify.post<{ Body: GetUploadUrlRequest }>('/url', async (request, reply) => {
-        const body = uploadUrlSchema.parse(request.body);
-        const { filename, mimeType, sizeBytes } = body;
+    // Direct image upload
+    fastify.post('/image', async (request, reply) => {
+        const data = await request.file();
 
-        // Validate file type and size
-        let maxSize: number;
-        if (ALLOWED_IMAGE_TYPES.includes(mimeType)) {
-            maxSize = MAX_IMAGE_SIZE;
-        } else if (ALLOWED_VIDEO_TYPES.includes(mimeType)) {
-            maxSize = MAX_VIDEO_SIZE;
-        } else if (ALLOWED_VOICE_TYPES.includes(mimeType)) {
-            maxSize = MAX_VOICE_SIZE;
-        } else {
-            return reply.code(400).send({ error: 'Unsupported file type' });
+        if (!data) {
+            return reply.code(400).send({ error: 'No file uploaded' });
         }
 
-        if (sizeBytes > maxSize) {
-            return reply.code(400).send({ error: `File too large. Max size: ${maxSize / 1024 / 1024}MB` });
+        // Validate type and size
+        if (!ALLOWED_IMAGE_TYPES.includes(data.mimetype)) {
+            return reply.code(400).send({ error: 'Invalid image type' });
         }
 
-        // TODO: Implement
-        // 1. Generate unique attachment ID
-        // 2. Generate S3 pre-signed PUT URL
-        // 3. Store pending attachment record in DB
-        // 4. Return URL and attachment ID
+        const buffer = await data.toBuffer();
 
-        const response: GetUploadUrlResponse = {
-            uploadUrl: 'https://s3.example.com/presigned-url',
-            attachmentId: 'pending-attachment-id',
-            expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 min
-        };
+        if (buffer.length > MAX_IMAGE_SIZE) {
+            return reply.code(400).send({ error: 'Image too large (max 10MB)' });
+        }
 
-        return response;
-    });
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${data.mimetype.split('/')[1]}`;
+        const filePath = `images/${fileName}`;
 
-    // Confirm upload complete
-    fastify.post<{ Params: { id: string } }>('/:id/complete', async (request, reply) => {
-        const { id } = request.params;
+        const { error } = await supabase.storage
+            .from(process.env.STORAGE_BUCKET!)
+            .upload(filePath, buffer, {
+                contentType: data.mimetype,
+                upsert: false
+            });
 
-        // TODO: Implement
-        // 1. Verify attachment belongs to user
-        // 2. Verify file exists in S3
-        // 3. Generate thumbnail if image/video
-        // 4. Extract duration if video/voice
-        // 5. Mark attachment as ready
+        if (error) {
+            fastify.log.error(error);
+            return reply.code(500).send({ error: 'Upload failed' });
+        }
 
-        return { success: true };
+        const { data: { publicUrl } } = supabase.storage
+            .from(process.env.STORAGE_BUCKET!)
+            .getPublicUrl(filePath);
+
+        return { url: publicUrl };
     });
 };
