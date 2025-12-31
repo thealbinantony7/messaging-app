@@ -199,11 +199,17 @@
 }
 
 /* Reactions */
+.message-reactions-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+}
+
 .message-reactions {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    margin-top: 6px;
 }
 
 .reaction-pill {
@@ -250,6 +256,51 @@
 
 .reaction-pill.reacted .reaction-count {
     color: rgba(255, 255, 255, 0.8);
+}
+
+/* Reaction trigger */
+.reaction-add-trigger {
+    display: flex;
+    gap: 3px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.message-bubble:hover .reaction-add-trigger {
+    opacity: 1;
+}
+
+.reaction-quick-btn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 11px;
+    opacity: 0.5;
+}
+
+.reaction-quick-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
+    transform: scale(1.1);
+}
+
+.reaction-quick-btn:active {
+    transform: scale(0.9);
+}
+
+/* Mobile: Always show trigger */
+@media (max-width: 768px) {
+    .reaction-add-trigger {
+        opacity: 0.4;
+    }
 }
 
 /* System message */

@@ -340,24 +340,45 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                     return acc;
                 }, {} as Record<string, typeof reactions>);
 
-                // Only render if there are reactions
-                if (Object.keys(groupedReactions).length === 0) return null;
+                const hasReactions = Object.keys(groupedReactions).length > 0;
+                const QUICK_EMOJIS = ['👍', '❤️', '😂'];
 
                 return (
-                    <div className="message-reactions">
-                        {Object.entries(groupedReactions).map(([emoji, reacts]) => {
-                            const hasReacted = user && reacts.some(r => r.userId === user.id);
-                            return (
-                                <button
-                                    key={emoji}
-                                    className={`reaction-pill ${hasReacted ? 'reacted' : ''}`}
-                                    onClick={() => toggleReaction(message.id, emoji)}
-                                >
-                                    <span className="reaction-emoji">{emoji}</span>
-                                    <span className="reaction-count">{reacts.length}</span>
-                                </button>
-                            );
-                        })}
+                    <div className="message-reactions-container">
+                        {/* Existing reactions */}
+                        {hasReactions && (
+                            <div className="message-reactions">
+                                {Object.entries(groupedReactions).map(([emoji, reacts]) => {
+                                    const hasReacted = user && reacts.some(r => r.userId === user.id);
+                                    return (
+                                        <button
+                                            key={emoji}
+                                            className={`reaction-pill ${hasReacted ? 'reacted' : ''}`}
+                                            onClick={() => toggleReaction(message.id, emoji)}
+                                        >
+                                            <span className="reaction-emoji">{emoji}</span>
+                                            <span className="reaction-count">{reacts.length}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Add reaction trigger */}
+                        {!isDeleted && (
+                            <div className="reaction-add-trigger">
+                                {QUICK_EMOJIS.map(emoji => (
+                                    <button
+                                        key={emoji}
+                                        className="reaction-quick-btn"
+                                        onClick={() => toggleReaction(message.id, emoji)}
+                                        title={`React with ${emoji}`}
+                                    >
+                                        {emoji}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 );
             })()}
