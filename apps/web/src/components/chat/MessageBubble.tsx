@@ -336,7 +336,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                 // Group reactions by emoji
                 const groupedReactions = reactions.reduce((acc, r) => {
                     if (!acc[r.emoji]) acc[r.emoji] = [];
-                    acc[r.emoji].push(r);
+                    acc[r.emoji]!.push(r);
                     return acc;
                 }, {} as Record<string, typeof reactions>);
 
