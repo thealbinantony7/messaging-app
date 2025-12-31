@@ -1,0 +1,31 @@
+{
+  "name": "linkup",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-native messaging application",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:server\"",
+    "dev:web": "npm run dev -w @linkup/web",
+    "dev:server": "npm run dev -w @linkup/server",
+    "build": "npm run build -w @linkup/shared && npm run build -w @linkup/web && npm run build -w @linkup/server",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write \"**/*.{ts,tsx,json,css,md}\"",
+    "typecheck": "npm run typecheck --workspaces",
+    "db:migrate": "npm run migrate -w @linkup/server",
+    "db:seed": "npm run seed -w @linkup/server"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.55.0",
+    "prettier": "^3.1.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

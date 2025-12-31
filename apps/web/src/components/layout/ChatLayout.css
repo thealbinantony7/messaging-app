@@ -1,0 +1,35 @@
+.chat-layout {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: var(--color-base);
+}
+
+.chat-sidebar {
+    flex-shrink: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-surface-1);
+    border-right: 1px solid var(--glass-border);
+}
+
+.chat-main {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Mobile styles */
+@media (max-width: 767px) {
+    .chat-sidebar {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100% !important;
+        z-index: 10;
+    }
+}

@@ -1,0 +1,201 @@
+.auth-screen {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    position: relative;
+    background: var(--color-base);
+}
+
+.auth-container {
+    width: 100%;
+    max-width: 380px;
+    padding: var(--space-8) var(--space-8);
+    border-radius: var(--radius-xl);
+    text-align: center;
+    position: relative;
+    border: 1px solid var(--color-surface-3);
+    background: var(--color-surface-1);
+    box-shadow: var(--shadow-xl);
+}
+
+/* Logo */
+.auth-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+}
+
+.auth-logo-icon {
+    color: var(--color-text-primary);
+}
+
+.auth-title {
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    letter-spacing: -0.02em;
+}
+
+.auth-subtitle {
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--space-8);
+    font-size: var(--font-size-sm);
+}
+
+/* Form */
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.auth-input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.auth-input-icon {
+    position: absolute;
+    left: var(--space-4);
+    color: var(--color-text-tertiary);
+    pointer-events: none;
+}
+
+.auth-input {
+    width: 100%;
+    height: 48px;
+    padding: 0 var(--space-4);
+    padding-left: calc(var(--space-4) + 24px);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-surface-3);
+    border-radius: var(--radius-lg);
+    font-size: var(--font-size-base);
+    transition: all var(--transition-fast);
+    color: var(--color-text-primary);
+}
+
+.auth-input:focus {
+    border-color: var(--color-accent);
+    background: var(--color-surface-3);
+    box-shadow: 0 0 0 2px var(--color-accent-muted);
+}
+
+.auth-input-otp {
+    padding-left: 0;
+    text-align: center;
+    font-size: var(--font-size-xl);
+    letter-spacing: 0.5em;
+    font-family: monospace;
+}
+
+.auth-otp-hint {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    margin-bottom: var(--space-2);
+}
+
+.auth-otp-hint strong {
+    color: var(--color-text-primary);
+    font-weight: 500;
+}
+
+/* Button */
+.auth-button {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    background: var(--color-accent);
+    border-radius: var(--radius-lg);
+    font-weight: 500;
+    color: white;
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-sm);
+}
+
+.auth-button:not(:disabled):hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+}
+
+.auth-button:not(:disabled):active {
+    transform: translateY(0);
+}
+
+.auth-button:disabled {
+    background: var(--color-surface-3);
+    color: var(--color-text-disabled);
+    cursor: not-allowed;
+}
+
+.auth-button-loading {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-top-color: var(--color-base);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.auth-back-button {
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-xs);
+    padding: var(--space-2);
+    transition: color var(--transition-fast);
+}
+
+.auth-back-button:hover {
+    color: var(--color-text-primary);
+}
+
+.auth-form-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.auth-footer {
+    margin-top: var(--space-4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    font-size: var(--font-size-sm);
+}
+
+.auth-switch-text {
+    color: var(--color-text-tertiary);
+}
+
+.auth-switch-button {
+    color: var(--color-text-primary);
+    font-weight: 500;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.auth-switch-button:hover {
+    text-decoration: underline;
+}
+
+.auth-dev-hint {
+    margin-top: var(--space-6);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-disabled);
+    font-size: var(--font-size-xs);
+    text-align: center;
+    font-family: monospace;
+}
