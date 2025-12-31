@@ -60,6 +60,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
     };
 
     const handleDelete = async (e?: React.MouseEvent) => {
+        console.log('[MOBILE-DEBUG] handleDelete called', { messageId: message.id, timestamp: Date.now() });
         if (e) {
             e.preventDefault();
             e.stopPropagation();
@@ -187,11 +188,13 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
     }, []);
 
     const handleTouchStart = (e: React.TouchEvent) => {
+        console.log('[MOBILE-DEBUG] touchstart', { timestamp: Date.now(), touches: e.touches.length, x: e.touches[0]?.clientX, y: e.touches[0]?.clientY });
         if (e.touches.length === 0) return;
         isLongPress.current = false;
         startPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
 
         touchTimer.current = setTimeout(() => {
+            console.log('[MOBILE-DEBUG] long-press triggered, opening menu');
             isLongPress.current = true;
             setShowMenu(true);
             if (navigator.vibrate) navigator.vibrate(50);
@@ -199,6 +202,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
     };
 
     const handleTouchEnd = () => {
+        console.log('[MOBILE-DEBUG] touchend', { hadTimer: !!touchTimer.current });
         if (touchTimer.current) {
             clearTimeout(touchTimer.current);
             touchTimer.current = null;
@@ -214,6 +218,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
 
         // Cancel if moved more than 10px
         if (moveX > 10 || moveY > 10) {
+            console.log('[MOBILE-DEBUG] touchmove cancelled long-press', { moveX, moveY });
             clearTimeout(touchTimer.current);
             touchTimer.current = null;
         }

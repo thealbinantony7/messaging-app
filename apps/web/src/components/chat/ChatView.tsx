@@ -79,9 +79,17 @@ export function ChatView({ conversationId }: Props) {
             .reverse()
             .find(msg => msg.senderId !== user.id);
 
+        console.log('[MOBILE-DEBUG] markRead check', {
+            conversationId,
+            messageCount: conversationMessages.length,
+            lastOtherMessageId: lastOtherMessage?.id,
+            userId: user.id
+        });
+
         if (lastOtherMessage) {
             // Mark as read via WebSocket
             import('../../lib/ws').then(({ wsClient }) => {
+                console.log('[MOBILE-DEBUG] calling wsClient.markRead', { conversationId, messageId: lastOtherMessage.id });
                 wsClient.markRead(conversationId, lastOtherMessage.id);
             });
         }
