@@ -18,7 +18,11 @@ class WebSocketClient {
         }
 
         this.token = token;
-        const envWsUrl = import.meta.env.VITE_WS_URL;
+        let envWsUrl = import.meta.env.VITE_WS_URL;
+        if (envWsUrl) {
+            envWsUrl = envWsUrl.replace(/^http/, 'ws');
+        }
+
         const wsUrl = envWsUrl
             ? `${envWsUrl}/ws?token=${encodeURIComponent(token)}`
             : `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws?token=${encodeURIComponent(token)}`;
