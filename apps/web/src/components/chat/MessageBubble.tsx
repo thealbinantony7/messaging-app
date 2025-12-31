@@ -191,7 +191,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
         console.log('[MOBILE-DEBUG] touchstart', { timestamp: Date.now(), touches: e.touches.length, x: e.touches[0]?.clientX, y: e.touches[0]?.clientY });
         if (e.touches.length === 0) return;
         isLongPress.current = false;
-        startPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        startPos.current = { x: e.touches[0]!.clientX, y: e.touches[0]!.clientY };
 
         touchTimer.current = setTimeout(() => {
             console.log('[MOBILE-DEBUG] long-press triggered, opening menu');
@@ -213,8 +213,8 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
     const handleTouchMove = (e: React.TouchEvent) => {
         if (!startPos.current || !touchTimer.current || e.touches.length === 0) return;
 
-        const moveX = Math.abs(e.touches[0].clientX - startPos.current.x);
-        const moveY = Math.abs(e.touches[0].clientY - startPos.current.y);
+        const moveX = Math.abs(e.touches[0]!.clientX - startPos.current.x);
+        const moveY = Math.abs(e.touches[0]!.clientY - startPos.current.y);
 
         // Cancel if moved more than 10px
         if (moveX > 10 || moveY > 10) {
