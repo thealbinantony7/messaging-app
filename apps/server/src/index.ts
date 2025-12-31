@@ -47,7 +47,11 @@ await app.register(rateLimit, {
 
 await app.register(websocket);
 
-await app.register(multipart);
+await app.register(multipart, {
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB
+    }
+});
 
 // Health check
 app.get('/health', async () => {
