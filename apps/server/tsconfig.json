@@ -19,10 +19,5 @@
     },
     "include": [
         "src/**/*"
-    ],
-    "references": [
-        {
-            "path": "../../packages/shared"
-        }
     ]
 }
