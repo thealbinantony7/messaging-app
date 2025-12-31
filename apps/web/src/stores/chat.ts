@@ -448,7 +448,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     ...c,
                     lastMessage: {
                         ...c.lastMessage!,
-                        deletedAt: new Date().toISOString()
+                        deletedAt: new Date().toISOString(),
+                        content: 'Message deleted',
                     }
                 };
             }
