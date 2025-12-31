@@ -333,21 +333,8 @@ export function ChatView({ conversationId }: Props) {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
 
-                                const formData = new FormData();
-                                formData.append('file', file);
-
                                 try {
-                                    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/upload/image`, {
-                                        method: 'POST',
-                                        headers: {
-                                            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                                        },
-                                        body: formData
-                                    });
-
-                                    if (!response.ok) throw new Error('Upload failed');
-
-                                    const { url } = await response.json();
+                                    const { url } = await api.uploadImage(file);
 
                                     // Send image message
                                     sendMessage(conversationId, url, 'image');
@@ -356,6 +343,8 @@ export function ChatView({ conversationId }: Props) {
                                     e.target.value = '';
                                 } catch (error) {
                                     console.error('Image upload failed:', error);
+                                    alert('Failed to upload image. Please try again.');
+                                    e.target.value = '';
                                 }
                             }}
                         />
