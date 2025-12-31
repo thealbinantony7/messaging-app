@@ -20,7 +20,7 @@ export const uploadRoutes: FastifyPluginAsync = async (fastify) => {
         try {
             await request.jwtVerify();
         } catch (err) {
-            reply.code(401).send({ error: 'Unauthorized' });
+            return reply.code(401).send({ error: 'Unauthorized' });
         }
     });
 
