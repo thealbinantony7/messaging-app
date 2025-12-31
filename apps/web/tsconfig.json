@@ -26,6 +26,9 @@
             "@linkup/shared": [
                 "../../packages/shared/src/index.ts"
             ],
+            "@linkup/shared/config": [
+                "../../packages/shared/src/config.ts"
+            ],
             "@linkup/shared/*": [
                 "../../packages/shared/src/*"
             ]
