@@ -337,7 +337,7 @@ export function ChatView({ conversationId }: Props) {
                                 formData.append('file', file);
 
                                 try {
-                                    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/upload/image`, {
+                                    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/upload/image`, {
                                         method: 'POST',
                                         headers: {
                                             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
