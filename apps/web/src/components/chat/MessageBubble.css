@@ -199,17 +199,11 @@
 }
 
 /* Reactions */
-.message-reactions-container {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 6px;
-}
-
 .message-reactions {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
+    margin-top: 6px;
 }
 
 .reaction-pill {
@@ -258,49 +252,37 @@
     color: rgba(255, 255, 255, 0.8);
 }
 
-/* Reaction trigger */
-.reaction-add-trigger {
+/* Context menu reactions */
+.context-menu-reactions {
     display: flex;
-    gap: 3px;
-    opacity: 0;
-    transition: opacity 0.2s;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 4px;
 }
 
-.message-bubble:hover .reaction-add-trigger {
-    opacity: 1;
-}
-
-.reaction-quick-btn {
-    width: 22px;
-    height: 22px;
+.context-menu-reaction-btn {
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 50%;
     cursor: pointer;
     transition: all 0.15s;
-    font-size: 11px;
-    opacity: 0.5;
+    font-size: 20px;
 }
 
-.reaction-quick-btn:hover {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.12);
+.context-menu-reaction-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
     transform: scale(1.1);
 }
 
-.reaction-quick-btn:active {
-    transform: scale(0.9);
-}
-
-/* Mobile: Always show trigger */
-@media (max-width: 768px) {
-    .reaction-add-trigger {
-        opacity: 0.4;
-    }
+.context-menu-reaction-btn:active {
+    transform: scale(0.95);
 }
 
 /* System message */
