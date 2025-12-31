@@ -6,7 +6,16 @@
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
         "noUnusedLocals": false,
-        "noUnusedParameters": false
+        "noUnusedParameters": false,
+        "baseUrl": ".",
+        "paths": {
+            "@linkup/shared": [
+                "../../packages/shared/src/index.ts"
+            ],
+            "@linkup/shared/*": [
+                "../../packages/shared/src/*"
+            ]
+        }
     },
     "include": [
         "src/**/*"
