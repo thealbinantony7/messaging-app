@@ -7,10 +7,12 @@ const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
-const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-);
+const getSupabaseClient = () => {
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+        throw new Error('Supabase credentials not configured');
+    }
+    return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+};
 
 export const uploadRoutes: FastifyPluginAsync = async (fastify) => {
     // Auth middleware
@@ -43,6 +45,8 @@ export const uploadRoutes: FastifyPluginAsync = async (fastify) => {
 
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${data.mimetype.split('/')[1]}`;
         const filePath = `images/${fileName}`;
+
+        const supabase = getSupabaseClient();
 
         const { error } = await supabase.storage
             .from(process.env.STORAGE_BUCKET!)
