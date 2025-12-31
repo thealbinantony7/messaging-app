@@ -78,6 +78,19 @@ export function ChatView({ conversationId }: Props) {
         }
     }, [message]);
 
+    // specific fix for mobile keyboard obscuring view
+    useEffect(() => {
+        if (!window.visualViewport) return;
+
+        const handleResize = () => {
+            // If keyboard opens (height shrinks), scroll to bottom
+            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        };
+
+        window.visualViewport.addEventListener('resize', handleResize);
+        return () => window.visualViewport?.removeEventListener('resize', handleResize);
+    }, []);
+
     // Cleanup typing timeouts on unmount
     useEffect(() => {
         return () => {

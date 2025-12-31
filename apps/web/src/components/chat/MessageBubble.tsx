@@ -171,6 +171,34 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
 
     const isFailed = status === 'failed';
 
+    // Long press logic for mobile
+    const touchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const isLongPress = useRef(false);
+
+    const handleTouchStart = () => {
+        isLongPress.current = false;
+        touchTimer.current = setTimeout(() => {
+            isLongPress.current = true;
+            setShowMenu(true);
+            // Vibrate if supported
+            if (navigator.vibrate) navigator.vibrate(50);
+        }, 500);
+    };
+
+    const handleTouchEnd = () => {
+        if (touchTimer.current) {
+            clearTimeout(touchTimer.current);
+            touchTimer.current = null;
+        }
+    };
+
+    const handleTouchMove = () => {
+        if (touchTimer.current) {
+            clearTimeout(touchTimer.current);
+            touchTimer.current = null;
+        }
+    };
+
     return (
         <motion.div
             className={`message-bubble ${isOwn ? 'own' : 'other'} ${isFailed ? 'failed' : ''} ${isGrouped ? 'grouped' : ''}`}
@@ -182,6 +210,9 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                 e.preventDefault();
                 setShowMenu(true);
             }}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            onTouchMove={handleTouchMove}
         >
             {showMenu && (
                 <div ref={menuRef} className="message-context-menu" style={{
@@ -194,23 +225,23 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                     padding: '4px',
                     zIndex: 100,
                     boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-                    minWidth: '120px',
+                    minWidth: '140px',
                     backdropFilter: 'blur(10px)'
                 }}>
                     <button onClick={handleCopy} className="menu-item" style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
-                        width: '100%', padding: '8px 12px', background: 'transparent',
+                        width: '100%', padding: '12px', background: 'transparent',
                         border: 'none', color: '#fff', cursor: 'pointer', fontSize: '14px',
-                        textAlign: 'left'
+                        textAlign: 'left', minHeight: '44px'
                     }}>
                         <Copy size={16} /> Copy
                     </button>
                     {canEdit && (
                         <button onClick={() => { setIsEditing(true); setShowMenu(false); }} className="menu-item" style={{
                             display: 'flex', alignItems: 'center', gap: '8px',
-                            width: '100%', padding: '8px 12px', background: 'transparent',
+                            width: '100%', padding: '12px', background: 'transparent',
                             border: 'none', color: '#fff', cursor: 'pointer', fontSize: '14px',
-                            textAlign: 'left'
+                            textAlign: 'left', minHeight: '44px'
                         }}>
                             <Edit2 size={16} /> Edit
                         </button>
@@ -218,9 +249,9 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                     {isOwn && !isDeleted && (
                         <button onClick={handleDelete} className="menu-item" style={{
                             display: 'flex', alignItems: 'center', gap: '8px',
-                            width: '100%', padding: '8px 12px', background: 'transparent',
+                            width: '100%', padding: '12px', background: 'transparent',
                             border: 'none', color: '#ff4444', cursor: 'pointer', fontSize: '14px',
-                            textAlign: 'left'
+                            textAlign: 'left', minHeight: '44px'
                         }}>
                             <Trash2 size={16} /> Delete
                         </button>

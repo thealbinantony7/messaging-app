@@ -204,6 +204,7 @@ export const messageRoutes: FastifyPluginAsync = async (fastify) => {
             const { id } = request.params;
             const { content } = request.body;
             const userId = (request.user as { id: string }).id;
+            request.log.info({ msg: 'Editing message', id, userId });
 
             // 1. Get message
             const msg = await queryOne<{ sender_id: string; created_at: string; conversation_id: string; deleted_at: string }>(
@@ -240,6 +241,7 @@ export const messageRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.delete<{ Params: { id: string } }>('/:id', async (request, reply) => {
         const { id } = request.params;
         const userId = (request.user as { id: string }).id;
+        request.log.info({ msg: 'Deleting message', id, userId });
 
         // 1. Get message
         const msg = await queryOne<{ sender_id: string; conversation_id: string; deleted_at: string }>(

@@ -79,6 +79,8 @@ signals.forEach((signal) => {
 try {
     await app.listen({ port: env.PORT, host: env.HOST });
     logger.info(`Server listening on ${env.HOST}:${env.PORT}`);
+    logger.info(`Environment: ${env.NODE_ENV}`);
+    logger.info(`CORS Origin: ${env.CORS_ORIGIN ? env.CORS_ORIGIN.replace(/https?:\/\//, '') + ' (masked)' : 'NOT SET'}`);
 } catch (err) {
     logger.error(err);
     process.exit(1);
