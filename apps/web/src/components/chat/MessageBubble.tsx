@@ -4,6 +4,8 @@ import { Check, CheckCheck, Clock, AlertCircle, Reply, RotateCw, Copy, Edit2, Tr
 import type { MessageWithDetails, MessageStatus } from '@linkup/shared';
 import { formatTime } from '../../lib/utils';
 import { api } from '../../lib/api';
+import { useChatStore } from '../../stores/chat';
+import { useAuthStore } from '../../stores/auth';
 import './MessageBubble.css';
 
 interface Props {
@@ -326,15 +328,59 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
             </div>
 
             {/* Reactions */}
-            {message.reactions.length > 0 && (
-                <div className="message-reactions">
-                    {message.reactions.map((reaction) => (
-                        <span key={reaction.id} className="message-reaction">
-                            {reaction.emoji}
-                        </span>
-                    ))}
-                </div>
-            )}
+            {(() => {
+                const reactions = useChatStore((state) => state.reactions[message.id] || []);
+                const toggleReaction = useChatStore((state) => state.toggleReaction);
+                const { user } = useAuthStore();
+
+                // Group reactions by emoji
+                const groupedReactions = reactions.reduce((acc, r) => {
+                    if (!acc[r.emoji]) acc[r.emoji] = [];
+                    acc[r.emoji].push(r);
+                    return acc;
+                }, {} as Record<string, typeof reactions>);
+
+                const QUICK_EMOJIS = ['👍', '❤️', '😂'];
+
+                return (
+                    <>
+                        {/* Existing reactions */}
+                        {Object.keys(groupedReactions).length > 0 && (
+                            <div className="message-reactions">
+                                {Object.entries(groupedReactions).map(([emoji, reacts]) => {
+                                    const hasReacted = user && reacts.some(r => r.userId === user.id);
+                                    return (
+                                        <button
+                                            key={emoji}
+                                            className={`reaction-pill ${hasReacted ? 'reacted' : ''}`}
+                                            onClick={() => toggleReaction(message.id, emoji)}
+                                        >
+                                            <span className="reaction-emoji">{emoji}</span>
+                                            <span className="reaction-count">{reacts.length}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Quick-add buttons */}
+                        {!isDeleted && (
+                            <div className="reaction-quick-add">
+                                {QUICK_EMOJIS.map(emoji => (
+                                    <button
+                                        key={emoji}
+                                        className="reaction-add-btn"
+                                        onClick={() => toggleReaction(message.id, emoji)}
+                                        title={`React with ${emoji}`}
+                                    >
+                                        {emoji}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                );
+            })()}
         </motion.div>
     );
 });

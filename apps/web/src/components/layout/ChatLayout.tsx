@@ -56,6 +56,9 @@ export function ChatLayout() {
                 case 'message_deleted':
                     useChatStore.getState().handleMessageDeleted(msg.payload);
                     break;
+                case 'reaction_updated':
+                    useChatStore.getState().handleReactionUpdated(msg.payload);
+                    break;
                 // Add other handlers here
             }
         });

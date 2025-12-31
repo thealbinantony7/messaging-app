@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ConversationWithMembers, MessageWithDetails, MessageStatus } from '@linkup/shared';
+import type { ConversationWithMembers, MessageWithDetails, MessageStatus, Reaction, ReactionUpdatedPayload } from '@linkup/shared';
 import { useAuthStore } from './auth';
 import { wsClient } from '../lib/ws';
 
@@ -47,6 +47,11 @@ interface ChatState {
     // Seen receipts (read receipts)
     seenReceipts: Record<string, Set<string>>; // messageId -> Set of userIds who have seen it
     setSeenReceipt: (messageId: string, userId: string) => void;
+
+    // Reactions
+    reactions: Record<string, Reaction[]>; // messageId -> Reaction[]
+    toggleReaction: (messageId: string, emoji: string) => void;
+    handleReactionUpdated: (payload: ReactionUpdatedPayload) => void;
 
     // Actions
     fetchConversations: () => Promise<void>;
@@ -194,6 +199,86 @@ export const useChatStore = create<ChatState>((set, get) => ({
             seenReceipts: { ...state.seenReceipts, [messageId]: updated },
         };
     }),
+
+    // Reactions
+    reactions: {},
+    toggleReaction: (messageId, emoji) => {
+        const { user } = useAuthStore.getState();
+        if (!user) return;
+
+        const current = get().reactions[messageId] || [];
+        const existing = current.find(r => r.userId === user.id && r.emoji === emoji);
+
+        if (existing) {
+            // Remove reaction optimistically
+            set((state) => ({
+                reactions: {
+                    ...state.reactions,
+                    [messageId]: current.filter(r => r.id !== existing.id)
+                }
+            }));
+            wsClient.react(messageId, null);
+        } else {
+            // Add reaction optimistically
+            const newReaction: Reaction = {
+                id: crypto.randomUUID(),
+                messageId,
+                userId: user.id,
+                emoji,
+                createdAt: new Date().toISOString()
+            };
+            set((state) => ({
+                reactions: {
+                    ...state.reactions,
+                    [messageId]: [...current, newReaction]
+                }
+            }));
+            wsClient.react(messageId, emoji);
+        }
+    },
+    handleReactionUpdated: (payload) => {
+        const { messageId, userId, emoji } = payload;
+        const current = get().reactions[messageId] || [];
+
+        if (emoji === null) {
+            // Remove reaction
+            set((state) => ({
+                reactions: {
+                    ...state.reactions,
+                    [messageId]: current.filter(r => r.userId !== userId)
+                }
+            }));
+        } else {
+            // Add or update reaction
+            const existing = current.find(r => r.userId === userId);
+            if (existing) {
+                // Update existing
+                set((state) => ({
+                    reactions: {
+                        ...state.reactions,
+                        [messageId]: current.map(r =>
+                            r.userId === userId ? { ...r, emoji } : r
+                        )
+                    }
+                }));
+            } else {
+                // Add new
+                const newReaction: Reaction = {
+                    id: crypto.randomUUID(),
+                    messageId,
+                    userId,
+                    emoji,
+                    createdAt: new Date().toISOString()
+                };
+                set((state) => ({
+                    reactions: {
+                        ...state.reactions,
+                        [messageId]: [...current, newReaction]
+                    }
+                }));
+            }
+        }
+    },
 
     // Actions
     fetchConversations: async () => {
