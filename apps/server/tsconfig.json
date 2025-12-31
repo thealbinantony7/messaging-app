@@ -1,4 +1,3 @@
-```json
 {
     "extends": "../../tsconfig.json",
     "compilerOptions": {
@@ -22,4 +21,3 @@
         "../../packages/shared/src/**/*"
     ]
 }
-```
