@@ -23,6 +23,10 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
     const menuRef = useRef<HTMLDivElement>(null);
     const isDeleted = !!message.deletedAt;
 
+    // Reaction handling
+    const toggleReaction = useChatStore((state) => state.toggleReaction);
+    const QUICK_EMOJIS = ['👍', '❤️', '😂'];
+
     // Close menu when clicking outside
     useEffect(() => {
         if (!showMenu) return;
@@ -258,27 +262,22 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                     backdropFilter: 'blur(10px)'
                 }}>
                     {/* Reaction emoji bar */}
-                    {!isDeleted && (() => {
-                        const toggleReaction = useChatStore((state) => state.toggleReaction);
-                        const QUICK_EMOJIS = ['👍', '❤️', '😂'];
-
-                        return (
-                            <div className="context-menu-reactions">
-                                {QUICK_EMOJIS.map(emoji => (
-                                    <button
-                                        key={emoji}
-                                        className="context-menu-reaction-btn"
-                                        onClick={() => {
-                                            toggleReaction(message.id, emoji);
-                                            setShowMenu(false);
-                                        }}
-                                    >
-                                        {emoji}
-                                    </button>
-                                ))}
-                            </div>
-                        );
-                    })()}
+                    {!isDeleted && (
+                        <div className="context-menu-reactions">
+                            {QUICK_EMOJIS.map(emoji => (
+                                <button
+                                    key={emoji}
+                                    className="context-menu-reaction-btn"
+                                    onClick={() => {
+                                        toggleReaction(message.id, emoji);
+                                        setShowMenu(false);
+                                    }}
+                                >
+                                    {emoji}
+                                </button>
+                            ))}
+                        </div>
+                    )}
 
                     <button onClick={handleCopy} className="menu-item" style={{
                         display: 'flex', alignItems: 'center', gap: '8px',
