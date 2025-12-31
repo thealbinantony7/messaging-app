@@ -37,7 +37,13 @@ export const uploadRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.code(400).send({ error: 'Invalid image type' });
         }
 
-        const buffer = await data.toBuffer();
+        let buffer: Buffer;
+        try {
+            buffer = await data.toBuffer();
+        } catch (err) {
+            fastify.log.error({ err }, 'Failed to read key file');
+            return reply.code(400).send({ error: 'File transfer failed' });
+        }
 
         if (buffer.length > MAX_IMAGE_SIZE) {
             return reply.code(400).send({ error: 'Image too large (max 10MB)' });
