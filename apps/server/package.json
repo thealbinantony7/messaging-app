@@ -14,7 +14,7 @@
     "dependencies": {
         "@fastify/cors": "^8.5.0",
         "@fastify/jwt": "^8.0.0",
-        "@fastify/multipart": "^9.3.0",
+        "@fastify/multipart": "^8.3.1",
         "@fastify/rate-limit": "^9.1.0",
         "@fastify/websocket": "^8.3.1",
         "@linkup/shared": "*",
