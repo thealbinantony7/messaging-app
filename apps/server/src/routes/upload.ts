@@ -52,18 +52,24 @@ export const uploadRoutes: FastifyPluginAsync = async (fastify) => {
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${data.mimetype.split('/')[1]}`;
         const filePath = `images/${fileName}`;
 
+        // Check for bucket config
+        if (!process.env.STORAGE_BUCKET) {
+            fastify.log.error('STORAGE_BUCKET env var missing');
+            return reply.code(500).send({ error: 'Server configuration error: Bucket missing' });
+        }
+
         const supabase = getSupabaseClient();
 
         const { error } = await supabase.storage
-            .from(process.env.STORAGE_BUCKET!)
+            .from(process.env.STORAGE_BUCKET)
             .upload(filePath, buffer, {
                 contentType: data.mimetype,
                 upsert: false
             });
 
         if (error) {
-            fastify.log.error(error);
-            return reply.code(500).send({ error: 'Upload failed' });
+            fastify.log.error({ error, bucket: process.env.STORAGE_BUCKET }, 'Supabase upload failed');
+            return reply.code(500).send({ error: `Upload failed: ${error.message}` });
         }
 
         const { data: { publicUrl } } = supabase.storage
