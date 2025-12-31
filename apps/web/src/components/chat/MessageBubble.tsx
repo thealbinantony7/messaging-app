@@ -340,45 +340,25 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                     return acc;
                 }, {} as Record<string, typeof reactions>);
 
-                const QUICK_EMOJIS = ['👍', '❤️', '😂'];
+                // Only render if there are reactions
+                if (Object.keys(groupedReactions).length === 0) return null;
 
                 return (
-                    <>
-                        {/* Existing reactions */}
-                        {Object.keys(groupedReactions).length > 0 && (
-                            <div className="message-reactions">
-                                {Object.entries(groupedReactions).map(([emoji, reacts]) => {
-                                    const hasReacted = user && reacts.some(r => r.userId === user.id);
-                                    return (
-                                        <button
-                                            key={emoji}
-                                            className={`reaction-pill ${hasReacted ? 'reacted' : ''}`}
-                                            onClick={() => toggleReaction(message.id, emoji)}
-                                        >
-                                            <span className="reaction-emoji">{emoji}</span>
-                                            <span className="reaction-count">{reacts.length}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {/* Quick-add buttons */}
-                        {!isDeleted && (
-                            <div className="reaction-quick-add">
-                                {QUICK_EMOJIS.map(emoji => (
-                                    <button
-                                        key={emoji}
-                                        className="reaction-add-btn"
-                                        onClick={() => toggleReaction(message.id, emoji)}
-                                        title={`React with ${emoji}`}
-                                    >
-                                        {emoji}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </>
+                    <div className="message-reactions">
+                        {Object.entries(groupedReactions).map(([emoji, reacts]) => {
+                            const hasReacted = user && reacts.some(r => r.userId === user.id);
+                            return (
+                                <button
+                                    key={emoji}
+                                    className={`reaction-pill ${hasReacted ? 'reacted' : ''}`}
+                                    onClick={() => toggleReaction(message.id, emoji)}
+                                >
+                                    <span className="reaction-emoji">{emoji}</span>
+                                    <span className="reaction-count">{reacts.length}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
                 );
             })()}
         </motion.div>
