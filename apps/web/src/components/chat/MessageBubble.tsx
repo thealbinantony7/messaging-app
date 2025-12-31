@@ -173,14 +173,17 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
 
     // Long press logic for mobile
     const touchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const startPos = useRef<{ x: number, y: number } | null>(null);
     const isLongPress = useRef(false);
 
-    const handleTouchStart = () => {
+    const handleTouchStart = (e: React.TouchEvent) => {
+        if (e.touches.length === 0) return;
         isLongPress.current = false;
+        startPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+
         touchTimer.current = setTimeout(() => {
             isLongPress.current = true;
             setShowMenu(true);
-            // Vibrate if supported
             if (navigator.vibrate) navigator.vibrate(50);
         }, 500);
     };
@@ -190,10 +193,17 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
             clearTimeout(touchTimer.current);
             touchTimer.current = null;
         }
+        startPos.current = null;
     };
 
-    const handleTouchMove = () => {
-        if (touchTimer.current) {
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!startPos.current || !touchTimer.current || e.touches.length === 0) return;
+
+        const moveX = Math.abs(e.touches[0].clientX - startPos.current.x);
+        const moveY = Math.abs(e.touches[0].clientY - startPos.current.y);
+
+        // Cancel if moved more than 10px
+        if (moveX > 10 || moveY > 10) {
             clearTimeout(touchTimer.current);
             touchTimer.current = null;
         }

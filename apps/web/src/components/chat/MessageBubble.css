@@ -6,6 +6,8 @@
     border-radius: 12px;
     position: relative;
     margin-bottom: 12px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* Grouped messages have tighter spacing */
