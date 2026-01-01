@@ -1,6 +1,6 @@
 import { memo, useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Check, CheckCheck, Clock, AlertCircle, Reply, Copy, Edit2, Trash2, X } from 'lucide-react';
+import { Check, CheckCheck, Clock, AlertCircle, Reply, RotateCw, Copy, Edit2, Trash2, X } from 'lucide-react';
 import type { MessageWithDetails, MessageStatus } from '@linkup/shared';
 import { formatTime } from '../../lib/utils';
 import { api } from '../../lib/api';
@@ -277,7 +277,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
 
     return (
         <motion.div
-            className={`message-bubble relative max-w-[75%] md:max-w-[65%] px-4 py-2.5 shadow-none ${isOwn ? 'ml-auto bg-blue-600 text-white rounded-[1.25rem] rounded-tr-sm' : 'bg-zinc-800 text-zinc-100 rounded-[1.25rem] rounded-tl-sm'} ${isFailed ? 'opacity-50' : ''} ${isGrouped ? 'mt-0.5' : 'mt-4'}`}
+            className={`message-bubble relative max-w-[75%] md:max-w-[65%] px-4 py-2.5 shadow-none ${isOwn ? 'ml-auto bg-primary text-primary-foreground rounded-[1.25rem] rounded-tr-sm' : 'bg-secondary text-secondary-foreground rounded-[1.25rem] rounded-tl-sm'} ${isFailed ? 'opacity-50' : ''} ${isGrouped ? 'mt-0.5' : 'mt-4'}`}
             // Removed animated transitions for a flat, instant feel
             layout={false}
             style={{ zIndex: showMenu ? 10 : 'auto', position: 'relative', pointerEvents: 'auto' }}
@@ -379,7 +379,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
             </div>
 
             {/* Footer */}
-            <div className={`flex items-center justify-end gap-1 mt-1 text-[11px] ${isOwn ? 'text-blue-100/70' : 'text-zinc-500'}`}>
+            <div className={`flex items-center justify-end gap-1 mt-1 text-[11px] ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                 {message.editedAt && !isDeleted && <span>edited</span>}
                 <span>{formatTime(message.createdAt)}</span>
                 {renderStatus()}
