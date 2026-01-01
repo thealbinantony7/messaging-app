@@ -11,6 +11,7 @@ class WebSocketClient {
     private reconnectDelay = 1000;
     private pingInterval: ReturnType<typeof setInterval> | null = null;
     private messageQueue: ClientMessage[] = [];
+    private subscribedConversations = new Set<string>();
 
     connect(token: string) {
         if (this.ws?.readyState === WebSocket.OPEN) {
@@ -44,6 +45,14 @@ class WebSocketClient {
             this.reconnectAttempts = 0;
             this.startPing();
             this.flushQueue();
+
+            // Re-subscribe to tracked conversations on reconnect
+            if (this.subscribedConversations.size > 0) {
+                this.send({
+                    type: 'subscribe',
+                    payload: { conversationIds: Array.from(this.subscribedConversations) }
+                });
+            }
         };
 
         this.ws.onclose = (event) => {
@@ -139,10 +148,12 @@ class WebSocketClient {
 
     // Convenience methods
     subscribe(conversationIds: string[]) {
+        conversationIds.forEach(id => this.subscribedConversations.add(id));
         this.send({ type: 'subscribe', payload: { conversationIds } });
     }
 
     unsubscribe(conversationIds: string[]) {
+        conversationIds.forEach(id => this.subscribedConversations.delete(id));
         this.send({ type: 'unsubscribe', payload: { conversationIds } });
     }
 

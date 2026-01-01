@@ -78,415 +78,415 @@ export function ChatView({ conversationId }: Props) {
         const isConversationChange = prevConversationId.current !== conversationId;
         const totalMessages = conversationMessages.length + pending.length;
 
-        // Instant scroll on conversation change, smooth for new messages
-        requestAnimationFrame(() => {
-            messagesEndRef.current?.scrollIntoView({
-                behavior: isConversationChange ? 'instant' : 'smooth'
-            });
-        });
+        // Instant scroll always for stability
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
 
         prevConversationId.current = conversationId;
         prevMessageCount.current = totalMessages;
     }, [conversationMessages.length, pending.length, conversationId]);
 
-    // Mark messages as read when viewing conversation
-    useEffect(() => {
-        if (!conversationMessages.length || !user) return;
+    prevConversationId.current = conversationId;
+    prevMessageCount.current = totalMessages;
+}, [conversationMessages.length, pending.length, conversationId]);
 
-        // Get the last message that's not from the current user
-        const lastOtherMessage = [...conversationMessages]
-            .reverse()
-            .find(msg => msg.senderId !== user.id);
+// Mark messages as read when viewing conversation
+useEffect(() => {
+    if (!conversationMessages.length || !user) return;
 
-        console.log('[MOBILE-DEBUG] markRead check', {
-            conversationId,
-            messageCount: conversationMessages.length,
-            lastOtherMessageId: lastOtherMessage?.id,
-            userId: user.id
+    // Get the last message that's not from the current user
+    const lastOtherMessage = [...conversationMessages]
+        .reverse()
+        .find(msg => msg.senderId !== user.id);
+
+    console.log('[MOBILE-DEBUG] markRead check', {
+        conversationId,
+        messageCount: conversationMessages.length,
+        lastOtherMessageId: lastOtherMessage?.id,
+        userId: user.id
+    });
+
+    if (lastOtherMessage) {
+        // Mark as read via WebSocket
+        import('../../lib/ws').then(({ wsClient }) => {
+            console.log('[MOBILE-DEBUG] calling wsClient.markRead', { conversationId, messageId: lastOtherMessage.id });
+            wsClient.markRead(conversationId, lastOtherMessage.id);
         });
 
-        if (lastOtherMessage) {
-            // Mark as read via WebSocket
-            import('../../lib/ws').then(({ wsClient }) => {
-                console.log('[MOBILE-DEBUG] calling wsClient.markRead', { conversationId, messageId: lastOtherMessage.id });
-                wsClient.markRead(conversationId, lastOtherMessage.id);
-            });
+        // Clear unread count immediately (optimistic)
+        useChatStore.getState().updateConversation(conversationId, { unreadCount: 0 });
+    }
+}, [conversationMessages, conversationId, user]);
 
-            // Clear unread count immediately (optimistic)
-            useChatStore.getState().updateConversation(conversationId, { unreadCount: 0 });
-        }
-    }, [conversationMessages, conversationId, user]);
+// Auto-resize textarea
+useEffect(() => {
+    if (inputRef.current) {
+        inputRef.current.style.height = 'auto';
+        inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
+    }
+}, [message]);
 
-    // Auto-resize textarea
-    useEffect(() => {
-        if (inputRef.current) {
-            inputRef.current.style.height = 'auto';
-            inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 120)}px`;
-        }
-    }, [message]);
+// specific fix for mobile keyboard obscuring view
+useEffect(() => {
+    if (!window.visualViewport) return;
 
-    // specific fix for mobile keyboard obscuring view
-    useEffect(() => {
-        if (!window.visualViewport) return;
-
-        const handleResize = () => {
-            // If keyboard opens (height shrinks), scroll to bottom
-            messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-        };
-
-        window.visualViewport.addEventListener('resize', handleResize);
-        return () => window.visualViewport?.removeEventListener('resize', handleResize);
-    }, []);
-
-    // Cleanup typing timeouts on unmount
-    useEffect(() => {
-        return () => {
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-            if (stopTypingTimeoutRef.current) clearTimeout(stopTypingTimeoutRef.current);
-        };
-    }, []);
-
-    const handleTyping = () => {
-        // Clear existing typing timeout
-        if (typingTimeoutRef.current) {
-            clearTimeout(typingTimeoutRef.current);
-        }
-
-        // Debounce: emit typing event after 500ms of input
-        typingTimeoutRef.current = setTimeout(() => {
-            import('../../lib/ws').then(({ wsClient }) => {
-                wsClient.setTyping(conversationId, true);
-            });
-
-            // Auto-clear: stop typing after 3s of inactivity
-            if (stopTypingTimeoutRef.current) {
-                clearTimeout(stopTypingTimeoutRef.current);
-            }
-            stopTypingTimeoutRef.current = setTimeout(() => {
-                import('../../lib/ws').then(({ wsClient }) => {
-                    wsClient.setTyping(conversationId, false);
-                });
-            }, 3000);
-        }, 500);
+    const handleResize = () => {
+        // If keyboard opens (height shrinks), scroll to bottom
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
     };
 
-    const handleSend = () => {
-        if (!message.trim()) return;
+    window.visualViewport.addEventListener('resize', handleResize);
+    return () => window.visualViewport?.removeEventListener('resize', handleResize);
+}, []);
 
-        // Stop typing indicator
+// Cleanup typing timeouts on unmount
+useEffect(() => {
+    return () => {
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         if (stopTypingTimeoutRef.current) clearTimeout(stopTypingTimeoutRef.current);
+    };
+}, []);
+
+const handleTyping = () => {
+    // Clear existing typing timeout
+    if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Debounce: emit typing event after 500ms of input
+    typingTimeoutRef.current = setTimeout(() => {
         import('../../lib/ws').then(({ wsClient }) => {
-            wsClient.setTyping(conversationId, false);
+            wsClient.setTyping(conversationId, true);
         });
 
-        sendMessage(conversationId, message.trim());
-        setMessage('');
-        setShowAiMenu(false);
-        // Reset height
-        if (inputRef.current) inputRef.current.style.height = 'auto';
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
+        // Auto-clear: stop typing after 3s of inactivity
+        if (stopTypingTimeoutRef.current) {
+            clearTimeout(stopTypingTimeoutRef.current);
         }
-    };
+        stopTypingTimeoutRef.current = setTimeout(() => {
+            import('../../lib/ws').then(({ wsClient }) => {
+                wsClient.setTyping(conversationId, false);
+            });
+        }, 3000);
+    }, 500);
+};
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        setMessage(e.target.value);
-        handleTyping();
-    };
+const handleSend = () => {
+    if (!message.trim()) return;
 
-    const handleRetry = (messageId: string) => {
-        retryMessage(conversationId, messageId);
-    };
+    // Stop typing indicator
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (stopTypingTimeoutRef.current) clearTimeout(stopTypingTimeoutRef.current);
+    import('../../lib/ws').then(({ wsClient }) => {
+        wsClient.setTyping(conversationId, false);
+    });
 
-    // Get display info
-    const getDisplayInfo = () => {
-        if (!conversation) return { name: 'Loading...', avatar: null, status: '' };
-        if (conversation.type === 'channel') {
-            return {
-                name: conversation.name || 'Channel',
-                avatar: conversation.avatarUrl,
-                status: `${conversation.members.length} subscribers`,
-            };
-        }
-        if (conversation.type === 'group') {
-            return {
-                name: conversation.name || 'Group Chat',
-                avatar: conversation.avatarUrl,
-                status: `${conversation.members.length} members`,
-            };
-        }
-        const other = conversation.members.find((m) => m.userId !== user?.id);
+    sendMessage(conversationId, message.trim());
+    setMessage('');
+    setShowAiMenu(false);
+    // Reset height
+    if (inputRef.current) inputRef.current.style.height = 'auto';
+};
+
+const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+    }
+};
+
+const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+    handleTyping();
+};
+
+const handleRetry = (messageId: string) => {
+    retryMessage(conversationId, messageId);
+};
+
+// Get display info
+const getDisplayInfo = () => {
+    if (!conversation) return { name: 'Loading...', avatar: null, status: '' };
+    if (conversation.type === 'channel') {
         return {
-            name: other?.user.displayName || 'Unknown',
-            avatar: other?.user.avatarUrl,
-            status: other?.user.lastSeenAt ? 'Active recently' : 'Offline',
+            name: conversation.name || 'Channel',
+            avatar: conversation.avatarUrl,
+            status: `${conversation.members.length} subscribers`,
         };
+    }
+    if (conversation.type === 'group') {
+        return {
+            name: conversation.name || 'Group Chat',
+            avatar: conversation.avatarUrl,
+            status: `${conversation.members.length} members`,
+        };
+    }
+    const other = conversation.members.find((m) => m.userId !== user?.id);
+    return {
+        name: other?.user.displayName || 'Unknown',
+        avatar: other?.user.avatarUrl,
+        status: other?.user.lastSeenAt ? 'Active recently' : 'Offline',
     };
+};
 
-    const displayInfo = getDisplayInfo();
+const displayInfo = getDisplayInfo();
 
-    // Check if user can send messages (for channels, only admins can send)
-    const canSendMessages = useMemo(() => {
-        if (!conversation || !user) return false;
-        if (conversation.type !== 'channel') return true;
-        const member = conversation.members.find(m => m.userId === user.id);
-        return member?.role === 'admin';
-    }, [conversation, user]);
+// Check if user can send messages (for channels, only admins can send)
+const canSendMessages = useMemo(() => {
+    if (!conversation || !user) return false;
+    if (conversation.type !== 'channel') return true;
+    const member = conversation.members.find(m => m.userId === user.id);
+    return member?.role === 'admin';
+}, [conversation, user]);
 
-    return (
-        <div className="chat-view">
-            {/* Header */}
-            <header className="chat-header glass">
-                <div className="chat-header-left">
-                    {isMobile && (
-                        <button
-                            className="chat-header-back"
-                            onClick={() => setActiveConversation(null)}
-                            aria-label="Back to conversations"
-                        >
-                            <ArrowLeft size={20} />
-                        </button>
-                    )}
-                    <div className="chat-header-avatar">
-                        {displayInfo.avatar ? (
-                            <img src={displayInfo.avatar} alt={displayInfo.name} />
-                        ) : (
-                            <div className="chat-header-avatar-fallback">
-                                {displayInfo.name.charAt(0).toUpperCase()}
-                            </div>
-                        )}
-                    </div>
-                    <div className="chat-header-info">
-                        <h2 className="chat-header-name">{displayInfo.name}</h2>
-                        <span className="chat-header-status">{displayInfo.status}</span>
-                    </div>
-                </div>
-                <div className="chat-header-actions">
+return (
+    <div className="chat-view">
+        {/* Header */}
+        <header className="chat-header glass">
+            <div className="chat-header-left">
+                {isMobile && (
                     <button
-                        className="chat-header-btn"
-                        aria-label="Copy invite link"
-                        onClick={async () => {
-                            try {
-                                const result = await import('../../lib/api').then(m => m.api.createInviteLink(conversationId));
-                                await navigator.clipboard.writeText(result.inviteUrl);
-                                addToast({ type: 'success', message: 'Invite link copied!' });
-                            } catch (err) {
-                                addToast({ type: 'error', message: 'Failed to create invite link' });
-                            }
-                        }}
+                        className="chat-header-back"
+                        onClick={() => setActiveConversation(null)}
+                        aria-label="Back to conversations"
                     >
-                        <Link size={20} />
+                        <ArrowLeft size={20} />
                     </button>
-                    <button className="chat-header-btn" aria-label="Search">
-                        <Search size={20} />
-                    </button>
-                    <button className="chat-header-btn" aria-label="More options">
-                        <MoreVertical size={20} />
-                    </button>
+                )}
+                <div className="chat-header-avatar">
+                    {displayInfo.avatar ? (
+                        <img src={displayInfo.avatar} alt={displayInfo.name} />
+                    ) : (
+                        <div className="chat-header-avatar-fallback">
+                            {displayInfo.name.charAt(0).toUpperCase()}
+                        </div>
+                    )}
                 </div>
-            </header>
+                <div className="chat-header-info">
+                    <h2 className="chat-header-name">{displayInfo.name}</h2>
+                    <span className="chat-header-status">{displayInfo.status}</span>
+                </div>
+            </div>
+            <div className="chat-header-actions">
+                <button
+                    className="chat-header-btn"
+                    aria-label="Copy invite link"
+                    onClick={async () => {
+                        try {
+                            const result = await import('../../lib/api').then(m => m.api.createInviteLink(conversationId));
+                            await navigator.clipboard.writeText(result.inviteUrl);
+                            addToast({ type: 'success', message: 'Invite link copied!' });
+                        } catch (err) {
+                            addToast({ type: 'error', message: 'Failed to create invite link' });
+                        }
+                    }}
+                >
+                    <Link size={20} />
+                </button>
+                <button className="chat-header-btn" aria-label="Search">
+                    <Search size={20} />
+                </button>
+                <button className="chat-header-btn" aria-label="More options">
+                    <MoreVertical size={20} />
+                </button>
+            </div>
+        </header>
 
-            {/* Messages */}
-            <div className="chat-messages">
-                {isLoading ? (
-                    <div className="chat-messages-loading">
-                        {Array.from({ length: 3 }).map((_, i) => (
-                            <div key={i} className={`message-skeleton ${i % 2 === 0 ? 'sent' : 'received'}`}>
-                                <div className="skeleton" style={{ width: '60%', height: 40 }} />
-                            </div>
-                        ))}
-                    </div>
-                ) : conversationMessages.length === 0 && pending.length === 0 ? (
-                    <div className="chat-messages-empty">
-                        <p>No messages yet. Say hello! 👋</p>
-                    </div>
-                ) : (
-                    <div className="chat-messages-list">
-                        {conversationMessages.map((msg, index) => {
-                            const prevMsg = index > 0 ? conversationMessages[index - 1] : null;
-                            const isGrouped = !!(prevMsg && prevMsg.senderId === msg.senderId &&
-                                (new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime()) < 60000); // 1 minute
+        {/* Messages */}
+        <div className="chat-messages">
+            {isLoading ? (
+                <div className="chat-messages-loading">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className={`message-skeleton ${i % 2 === 0 ? 'sent' : 'received'}`}>
+                            <div className="skeleton" style={{ width: '60%', height: 40 }} />
+                        </div>
+                    ))}
+                </div>
+            ) : conversationMessages.length === 0 && pending.length === 0 ? (
+                <div className="chat-messages-empty">
+                    <p>No messages yet. Say hello! 👋</p>
+                </div>
+            ) : (
+                <div className="chat-messages-list">
+                    {conversationMessages.map((msg, index) => {
+                        const prevMsg = index > 0 ? conversationMessages[index - 1] : null;
+                        const isGrouped = !!(prevMsg && prevMsg.senderId === msg.senderId &&
+                            (new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime()) < 60000); // 1 minute
 
-                            return (
-                                <MessageBubble
-                                    key={msg.id}
-                                    message={msg}
-                                    isOwn={msg.senderId === user?.id}
-                                    status={msg.senderId === user?.id ? getMessageStatus(msg.id) : undefined}
-                                    isGrouped={isGrouped}
-                                />
-                            );
-                        })}
-                        {pending.map((msg) => (
+                        return (
                             <MessageBubble
                                 key={msg.id}
                                 message={msg}
-                                isOwn={true}
-                                status={msg.status}
-                                onRetry={msg.status === 'failed' ? () => handleRetry(msg.id) : undefined}
-                                isGrouped={false}
+                                isOwn={msg.senderId === user?.id}
+                                status={msg.senderId === user?.id ? getMessageStatus(msg.id) : undefined}
+                                isGrouped={isGrouped}
                             />
-                        ))}
-                        {uploadingImage && (
-                            <div className="message-bubble own" style={{ position: 'relative' }}>
-                                <div className="message-content">
-                                    <div className="message-image" style={{ position: 'relative', maxWidth: '300px' }}>
-                                        <img
-                                            src={uploadingImage.preview}
-                                            alt="Uploading..."
-                                            style={{ width: '100%', display: 'block', borderRadius: '12px', opacity: 0.7 }}
-                                        />
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '50%',
-                                            left: '50%',
-                                            transform: 'translate(-50%, -50%)',
-                                            background: 'rgba(0,0,0,0.75)',
-                                            padding: '12px 20px',
-                                            borderRadius: '8px',
-                                            color: '#fff',
-                                            fontSize: '14px',
-                                            fontWeight: 500,
-                                            whiteSpace: 'nowrap',
-                                            backdropFilter: 'blur(4px)'
-                                        }}>
-                                            Uploading {uploadingImage.progress}%
-                                        </div>
+                        );
+                    })}
+                    {pending.map((msg) => (
+                        <MessageBubble
+                            key={msg.id}
+                            message={msg}
+                            isOwn={true}
+                            status={msg.status}
+                            onRetry={msg.status === 'failed' ? () => handleRetry(msg.id) : undefined}
+                            isGrouped={false}
+                        />
+                    ))}
+                    {uploadingImage && (
+                        <div className="message-bubble own" style={{ position: 'relative' }}>
+                            <div className="message-content">
+                                <div className="message-image" style={{ position: 'relative', maxWidth: '300px' }}>
+                                    <img
+                                        src={uploadingImage.preview}
+                                        alt="Uploading..."
+                                        style={{ width: '100%', display: 'block', borderRadius: '12px', opacity: 0.7 }}
+                                    />
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '50%',
+                                        left: '50%',
+                                        transform: 'translate(-50%, -50%)',
+                                        background: 'rgba(0,0,0,0.75)',
+                                        padding: '12px 20px',
+                                        borderRadius: '8px',
+                                        color: '#fff',
+                                        fontSize: '14px',
+                                        fontWeight: 500,
+                                        whiteSpace: 'nowrap',
+                                        backdropFilter: 'blur(4px)'
+                                    }}>
+                                        Uploading {uploadingImage.progress}%
                                     </div>
                                 </div>
                             </div>
-                        )}
-                        <TypingIndicator conversationId={conversationId} />
-                        <div ref={messagesEndRef} />
-                    </div>
-                )}
-            </div>
-
-            {/* Input */}
-            <div className="chat-input glass">
-                {!canSendMessages ? (
-                    <div className="chat-input-readonly">
-                        <p>Only admins can send messages in this channel</p>
-                    </div>
-                ) : (
-                    <>
-                        <input
-                            type="file"
-                            accept="image/*"
-                            style={{ display: 'none' }}
-                            id="image-upload"
-                            onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-
-                                // Create local preview
-                                const preview = URL.createObjectURL(file);
-                                setUploadingImage({ preview, progress: 0 });
-
-                                try {
-                                    const { url } = await api.uploadImage(file, (percent) => {
-                                        setUploadingImage((prev) => prev ? { ...prev, progress: percent } : null);
-                                    });
-
-                                    // Upload complete → send message
-                                    sendMessage(conversationId, url, 'image');
-
-                                    // Cleanup
-                                    URL.revokeObjectURL(preview);
-                                    setUploadingImage(null);
-                                    e.target.value = '';
-                                } catch (error) {
-                                    console.error('Image upload failed:', error);
-                                    addToast({ type: 'error', message: 'Failed to upload image. Please try again.' });
-                                    URL.revokeObjectURL(preview);
-                                    setUploadingImage(null);
-                                    e.target.value = '';
-                                }
-                            }}
-                        />
-                        <button
-                            className="chat-input-btn"
-                            aria-label="Send image"
-                            onClick={() => document.getElementById('image-upload')?.click()}
-                        >
-                            <Image size={20} />
-                        </button>
-
-                        <div className="chat-input-wrapper">
-                            <textarea
-                                ref={inputRef}
-                                className="chat-input-field"
-                                placeholder="Type a message..."
-                                value={message}
-                                onChange={handleInputChange}
-                                onKeyDown={handleKeyDown}
-                                rows={1}
-                            />
-
-                            {/* AI rewrite button */}
-                            {message.trim() && (
-                                <div className="chat-input-ai">
-                                    <button
-                                        className="chat-input-ai-btn"
-                                        onClick={() => setShowAiMenu(!showAiMenu)}
-                                        aria-label="AI rewrite"
-                                    >
-                                        <Sparkles size={16} />
-                                    </button>
-
-                                    <AnimatePresence>
-                                        {showAiMenu && (
-                                            <motion.div
-                                                className="chat-ai-menu glass"
-                                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                                transition={{ duration: 0.15 }}
-                                            >
-                                                <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
-                                                    ✨ Make shorter
-                                                </button>
-                                                <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
-                                                    📝 Make clearer
-                                                </button>
-                                                <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
-                                                    👔 Make formal
-                                                </button>
-                                                <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
-                                                    😊 Make casual
-                                                </button>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-                                </div>
-                            )}
                         </div>
-
-                        <button className="chat-input-btn" aria-label="Emoji">
-                            <Smile size={20} />
-                        </button>
-
-                        {message.trim() ? (
-                            <button
-                                className="chat-input-send"
-                                onClick={handleSend}
-                                aria-label="Send message"
-                            >
-                                <Send size={18} />
-                            </button>
-                        ) : (
-                            <button className="chat-input-btn" aria-label="Voice message">
-                                <Mic size={20} />
-                            </button>
-                        )}
-                    </>
-                )}
-            </div>
+                    )}
+                    <TypingIndicator conversationId={conversationId} />
+                    <div ref={messagesEndRef} />
+                </div>
+            )}
         </div>
-    );
+
+        {/* Input */}
+        <div className="chat-input glass">
+            {!canSendMessages ? (
+                <div className="chat-input-readonly">
+                    <p>Only admins can send messages in this channel</p>
+                </div>
+            ) : (
+                <>
+                    <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        id="image-upload"
+                        onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            // Create local preview
+                            const preview = URL.createObjectURL(file);
+                            setUploadingImage({ preview, progress: 0 });
+
+                            try {
+                                const { url } = await api.uploadImage(file, (percent) => {
+                                    setUploadingImage((prev) => prev ? { ...prev, progress: percent } : null);
+                                });
+
+                                // Upload complete → send message
+                                sendMessage(conversationId, url, 'image');
+
+                                // Cleanup
+                                URL.revokeObjectURL(preview);
+                                setUploadingImage(null);
+                                e.target.value = '';
+                            } catch (error) {
+                                console.error('Image upload failed:', error);
+                                addToast({ type: 'error', message: 'Failed to upload image. Please try again.' });
+                                URL.revokeObjectURL(preview);
+                                setUploadingImage(null);
+                                e.target.value = '';
+                            }
+                        }}
+                    />
+                    <button
+                        className="chat-input-btn"
+                        aria-label="Send image"
+                        onClick={() => document.getElementById('image-upload')?.click()}
+                    >
+                        <Image size={20} />
+                    </button>
+
+                    <div className="chat-input-wrapper">
+                        <textarea
+                            ref={inputRef}
+                            className="chat-input-field"
+                            placeholder="Type a message..."
+                            value={message}
+                            onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
+                            rows={1}
+                        />
+
+                        {/* AI rewrite button */}
+                        {message.trim() && (
+                            <div className="chat-input-ai">
+                                <button
+                                    className="chat-input-ai-btn"
+                                    onClick={() => setShowAiMenu(!showAiMenu)}
+                                    aria-label="AI rewrite"
+                                >
+                                    <Sparkles size={16} />
+                                </button>
+
+                                <AnimatePresence>
+                                    {showAiMenu && (
+                                        <motion.div
+                                            className="chat-ai-menu glass"
+                                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                            transition={{ duration: 0.15 }}
+                                        >
+                                            <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
+                                                ✨ Make shorter
+                                            </button>
+                                            <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
+                                                📝 Make clearer
+                                            </button>
+                                            <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
+                                                👔 Make formal
+                                            </button>
+                                            <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
+                                                😊 Make casual
+                                            </button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        )}
+                    </div>
+
+                    <button className="chat-input-btn" aria-label="Emoji">
+                        <Smile size={20} />
+                    </button>
+
+                    {message.trim() ? (
+                        <button
+                            className="chat-input-send"
+                            onClick={handleSend}
+                            aria-label="Send message"
+                        >
+                            <Send size={18} />
+                        </button>
+                    ) : (
+                        <button className="chat-input-btn" aria-label="Voice message">
+                            <Mic size={20} />
+                        </button>
+                    )}
+                </>
+            )}
+        </div>
+    </div>
+);
 }

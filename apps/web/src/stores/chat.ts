@@ -436,32 +436,60 @@ export const useChatStore = create<ChatState>((set, get) => ({
     handleNewMessage: (message: MessageWithDetails) => {
         set((state) => {
             const { conversationId } = message;
+            const { user } = useAuthStore.getState();
 
-            // Remove from pending if exists (by ID)
+            // 1. Update Messages
             const pending = state.pendingMessages[conversationId] || [];
-            const isMyMessage = pending.some(m => m.id === message.id);
+            const isMyMessage = message.senderId === user?.id || pending.some(m => m.id === message.id);
 
             const newPending = isMyMessage
                 ? pending.filter(m => m.id !== message.id)
                 : pending;
 
-            // Add to messages, ensuring no duplicates
             const currentMessages = state.messages[conversationId] || [];
+            // Prevent duplicates
             if (currentMessages.some(m => m.id === message.id)) {
                 return { pendingMessages: { ...state.pendingMessages, [conversationId]: newPending } };
             }
 
-            // Messages are stored in ASC order (oldest first)
-            // New messages are appended to the end
+            const newMessages = [...currentMessages, message];
+
+            // 2. Update Conversation (Sidebar)
+            const conversationIndex = state.conversations.findIndex(c => c.id === conversationId);
+            let newConversations = [...state.conversations];
+
+            if (conversationIndex !== -1) {
+                const conversation = newConversations[conversationIndex];
+                const isUnread = !isMyMessage; // Only increment if not my message
+
+                const updatedConversation = {
+                    ...conversation,
+                    lastMessage: {
+                        id: message.id,
+                        content: message.content,
+                        type: message.type,
+                        senderId: message.senderId,
+                        createdAt: message.createdAt
+                    },
+                    updatedAt: message.createdAt,
+                    unreadCount: conversation.unreadCount + (isUnread ? 1 : 0)
+                };
+
+                // Move to top and update
+                newConversations.splice(conversationIndex, 1);
+                newConversations.unshift(updatedConversation);
+            }
+
             return {
                 messages: {
                     ...state.messages,
-                    [conversationId]: [...currentMessages, message]
+                    [conversationId]: newMessages
                 },
                 pendingMessages: {
                     ...state.pendingMessages,
                     [conversationId]: newPending
-                }
+                },
+                conversations: newConversations
             };
         });
     },
