@@ -84,6 +84,11 @@
     width: 100%;
     max-width: 300px;
     display: block;
+    transition: opacity 0.15s;
+}
+
+.message-image:hover img {
+    opacity: 0.85;
 }
 
 .message-voice {
@@ -110,7 +115,7 @@
     gap: 4px;
     margin-top: 6px;
     font-size: 10px;
-    opacity: 0.4;
+    opacity: 0.55;
     transition: opacity 0.2s;
 }
 
@@ -121,7 +126,7 @@
 
 /* Hide timestamp for grouped messages unless hovered */
 .message-bubble.grouped .message-footer {
-    opacity: 0.2;
+    opacity: 0.4;
 }
 
 .message-bubble.grouped:hover .message-footer {
@@ -351,4 +356,19 @@
 /* Context menu hover */
 .menu-item:hover {
     background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Context menu fade-in */
+.message-context-menu {
+    animation: menuFadeIn 0.1s ease-out;
+}
+
+@keyframes menuFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
