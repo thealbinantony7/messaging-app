@@ -1,120 +1,43 @@
-# ✅ FIXED: Cross-User Message Rendering
+# Phase 3.1: Realtime Reliability Fixes (Completed)
 
-## Problem
-Messages sent by another user were stored in the Zustand store and visible in the sidebar, but **did not render in the active chat view**.
+We have addressed the critical realtime correctness bugs. The application should now reliably display messages, update the sidebar, and scroll correctly without requiring reloads.
 
-## Root Causes
+## ✅ Fixes Implemented
 
-### 1. **Stale Closure in WebSocket Handler** (Fixed Previously)
-The WebSocket event handler was using stale references to store functions, causing messages to be processed with outdated state.
+### 1. WebSocket Subscription Race (Critical)
+**Root Cause:** Subscriptions were skipped if the WS connected before conversations loaded, or were lost on reconnect.
+**Fix (`ws.ts`):** 
+- Added `subscribedConversations` Set to track active subscriptions.
+- Implemented `ws.onopen` handler to automatically re-subscribe to all tracked conversations upon connection or reconnection.
 
-**Fix:** Use `useChatStore.getState()` inside the WebSocket callback to get fresh handlers.
+### 2. Sidebar Stale State
+**Root Cause:** `handleNewMessage` updated the chat view but ignored the conversation list state (last message, unread count).
+**Fix (`chat.ts`):** 
+- Updated `handleNewMessage` to also find the conversation in the list and update its `lastMessage`, `updatedAt`, and `unreadCount`.
+- Moves the updated conversation to the top of the list.
 
-### 2. **No Reactive Subscription in ChatView** (Main Issue - Fixed Now)
-The ChatView was extracting store data with object destructuring, which only reads the store once per render.
+### 3. Scroll Timing
+**Root Cause:** `requestAnimationFrame` was firing before the DOM update was committed, causing scrolls to miss.
+**Fix (`ChatView.tsx`):** 
+- Removed `requestAnimationFrame`.
+- Removed `smooth` behavior for new messages (changed to `auto` for instant stability).
+- simplified the effect dependency to guarantee scroll on message count change.
 
-```typescript
-// ❌ BROKEN - No reactivity
-const { messages } = useChatStore();
-const conversationMessages = messages[conversationId];
-```
+### 4. Unread Badge Persistence
+**Root Cause:** Backend query included user's own messages in unread count.
+**Fix (`conversations.ts`):** 
+- Added `AND m.sender_id != $1` to the unread count SQL query.
+- Frontend includes optimistic `unreadCount: 0` update on view.
 
-When a new message arrived via WebSocket, the store updated but the component didn't re-render.
+## 🧪 Verification Steps
 
-**Fix:** Use Zustand selectors with shallow equality:
+Please test the following flows:
 
-```typescript
-// ✅ FIXED - Reactive subscription
-const { conversationMessages, pending, typing } = useChatStore(
-    (state) => ({
-        conversationMessages: state.messages[conversationId] || [],
-        pending: state.pendingMessages[conversationId] || [],
-        typing: state.typingUsers[conversationId] || [],
-    }),
-    shallow
-);
-```
+1.  **Realtime Receive:** Open two browsers/devices. User A sends message. User B should see it **instantly** without reload.
+2.  **Sidebar Update:** When User A sends a message, User B's sidebar should move User A to the top with the new message preview.
+3.  **Scroll:** Sending/receiving messages should keep the view anchored to the bottom.
+4.  **Unread Badge:** Opening a chat should clear the blue dot. Reloading should **not** brings it back.
+5.  **Reconnect:** Turn off Wi-Fi/Network, wait 5s, turn back on. App should reconnect and fetch missing messages (via re-sub).
 
-### 3. **Excessive Re-renders**
-Multiple individual selectors caused the component to re-render on every tiny state change.
-
-**Fix:** Combine related state into a single selector with `shallow` equality comparison.
-
-## Changes Made
-
-### `apps/web/src/components/chat/ChatView.tsx`
-- **Added:** `import { shallow } from 'zustand/shallow'`
-- **Changed:** Combined all state selectors into one with shallow equality
-- **Result:** Component re-renders only when messages/pending/typing actually change
-
-### `apps/web/src/components/layout/ChatLayout.tsx`
-- **Changed:** WebSocket handler uses `useChatStore.getState()` to avoid stale closures
-- **Removed:** Debug logging
-
-### `apps/web/src/stores/chat.ts`
-- **Removed:** All debug logging from `handleNewMessage`
-
-### `apps/web/src/components/layout/Sidebar.tsx`
-- **Removed:** Debug logging from subscription
-
-## How It Works Now
-
-1. **Bob sends message** → WebSocket broadcasts to all clients
-2. **Alice's browser receives** → WebSocket handler calls `handleNewMessage()`
-3. **Store updates** → Creates new array: `[...currentMessages, newMessage]`
-4. **Zustand detects change** → Shallow comparison sees new array reference
-5. **ChatView re-renders** → Selector returns updated messages
-6. **UI updates** → New message appears immediately
-
-## Verification
-
-✅ Messages from other users appear **immediately** in real-time  
-✅ No duplicate messages  
-✅ Messages persist after reload  
-✅ Sidebar and ChatView both update  
-✅ No excessive re-renders  
-✅ No console spam  
-✅ Works across multiple tabs/windows  
-
-## Key Concepts
-
-### Zustand Shallow Equality
-```typescript
-// Without shallow - re-renders on every state change
-const data = useChatStore((state) => ({
-    messages: state.messages[id],
-    pending: state.pendingMessages[id]
-}));
-
-// With shallow - only re-renders when values change
-const data = useChatStore(
-    (state) => ({
-        messages: state.messages[id],
-        pending: state.pendingMessages[id]
-    }),
-    shallow
-);
-```
-
-`shallow` compares object properties:
-- If `messages` array reference changes → re-render
-- If `messages` array is same reference → no re-render
-- Prevents re-renders from unrelated state changes
-
-### Why It's Important
-- **Performance:** Prevents unnecessary re-renders
-- **Correctness:** Ensures UI updates when data changes
-- **Reactivity:** Components automatically sync with store
-
-## Testing
-1. Open two browser windows
-2. Login as Alice in one, Bob in the other
-3. Bob sends a message
-4. Alice sees it **immediately** without reload
-
-## Files to Review
-- `apps/web/src/components/chat/ChatView.tsx` - Main fix
-- `apps/web/src/components/layout/ChatLayout.tsx` - WebSocket handler
-- `apps/web/src/stores/chat.ts` - Store logic
-
-All debug logs have been removed. The app is production-ready.
+## Next Steps
+Once reliability is confirmed, we can proceed to **Phase 3.2: UI Polish** (if needed).
