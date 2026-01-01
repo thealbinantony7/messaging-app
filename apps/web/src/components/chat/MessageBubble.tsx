@@ -137,10 +137,11 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
             case 'text':
                 return <p className="message-text">{message.content}</p>;
             case 'image':
-                const image = message.attachments[0];
-                return image ? (
+                // Image URL can be in attachments[0].url OR directly in message.content
+                const imageUrl = message.attachments[0]?.url || message.attachments[0]?.thumbnail || message.content;
+                return imageUrl ? (
                     <div className="message-image">
-                        <img src={image.thumbnail || image.url} alt="Shared image" loading="lazy" />
+                        <img src={imageUrl} alt="Shared image" loading="lazy" />
                     </div>
                 ) : null;
             case 'video':
