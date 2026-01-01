@@ -29,6 +29,12 @@ export default async function inviteRoutes(fastify: FastifyInstance) {
         '/invite/create',
         async (request, reply) => {
             const { conversationId } = request.body;
+
+            // PHASE 6.3: Explicit validation
+            if (!conversationId || typeof conversationId !== 'string') {
+                return reply.code(400).send({ error: 'Conversation ID is required' });
+            }
+
             const userId = (request.user as JwtPayload).id;
 
             // Verify user is member and has permission (admin for channels, any member for DMs/groups)

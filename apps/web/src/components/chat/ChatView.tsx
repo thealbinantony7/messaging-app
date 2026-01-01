@@ -22,6 +22,8 @@ export function ChatView({ conversationId }: Props) {
         preview: string;
         progress: number;
     } | null>(null);
+    // PHASE 6.3: Invite creation loading state
+    const [isCreatingInvite, setIsCreatingInvite] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -251,6 +253,25 @@ export function ChatView({ conversationId }: Props) {
         retryMessage(conversationId, messageId);
     };
 
+    // PHASE 6.3: Robust invite creation handler
+    const handleCreateInvite = async () => {
+        if (isCreatingInvite) return;
+
+        setIsCreatingInvite(true);
+        try {
+            const result = await api.createInviteLink(conversationId);
+            await navigator.clipboard.writeText(result.inviteUrl);
+            addToast({ type: 'success', message: 'Invite link copied to clipboard!' });
+        } catch (err: any) {
+            console.error('Invite creation failed:', err);
+            // Show explicit error from backend if available
+            const errorMessage = err.response?.data?.error || err.message || 'Failed to create invite link';
+            addToast({ type: 'error', message: errorMessage });
+        } finally {
+            setIsCreatingInvite(false);
+        }
+    };
+
     // Get display info
     const getDisplayInfo = () => {
         if (!conversation) return { name: 'Loading...', avatar: null, status: '' };
@@ -318,19 +339,16 @@ export function ChatView({ conversationId }: Props) {
                 </div>
                 <div className="chat-header-actions gap-2">
                     <button
-                        className="p-2 rounded-full hover:bg-accent text-zinc-400 hover:text-foreground transition-colors"
-                        aria-label="Copy invite link"
-                        onClick={async () => {
-                            try {
-                                const result = await import('../../lib/api').then(m => m.api.createInviteLink(conversationId));
-                                await navigator.clipboard.writeText(result.inviteUrl);
-                                addToast({ type: 'success', message: 'Invite link copied!' });
-                            } catch (err) {
-                                addToast({ type: 'error', message: 'Failed to create invite link' });
-                            }
-                        }}
+                        className={`p-2 rounded-full hover:bg-accent text-zinc-400 hover:text-foreground transition-colors ${isCreatingInvite ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        aria-label={isCreatingInvite ? "Creating invite..." : "Copy invite link"}
+                        onClick={handleCreateInvite}
+                        disabled={isCreatingInvite}
                     >
-                        <Link size={20} className="w-5 h-5" />
+                        {isCreatingInvite ? (
+                            <div className="w-5 h-5 border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <Link size={20} className="w-5 h-5" />
+                        )}
                     </button>
                     <button className="p-2 rounded-full hover:bg-accent text-zinc-400 hover:text-foreground transition-colors" aria-label="Search">
                         <Search size={20} className="w-5 h-5" />
