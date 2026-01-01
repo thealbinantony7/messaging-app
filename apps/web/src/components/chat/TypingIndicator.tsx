@@ -15,7 +15,7 @@ export function TypingIndicator({ conversationId }: Props) {
 
     // Get the first typing user's name (excluding current user)
     const typingUser = conversation?.members.find(
-        (m) => typingUserIds.includes(m.id) && m.id !== user?.id
+        (m) => typingUserIds.includes(m.userId) && m.userId !== user?.id
     );
 
     if (!typingUser) return null;

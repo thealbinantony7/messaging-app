@@ -70,9 +70,21 @@ export function ChatView({ conversationId }: Props) {
         fetchMessages(conversationId);
     }, [conversationId, fetchMessages]);
 
-    // Scroll to bottom on new messages
+    // Scroll to bottom - instant on conversation change, smooth for new messages
+    const prevConversationId = useRef(conversationId);
+    const prevMessageCount = useRef(0);
+
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        const isConversationChange = prevConversationId.current !== conversationId;
+        const totalMessages = conversationMessages.length + pending.length;
+
+        // Instant scroll on conversation change, smooth for new messages
+        messagesEndRef.current?.scrollIntoView({
+            behavior: isConversationChange ? 'instant' : 'smooth'
+        });
+
+        prevConversationId.current = conversationId;
+        prevMessageCount.current = totalMessages;
     }, [conversationMessages.length, pending.length, conversationId]);
 
     // Mark messages as read when viewing conversation
@@ -97,6 +109,9 @@ export function ChatView({ conversationId }: Props) {
                 console.log('[MOBILE-DEBUG] calling wsClient.markRead', { conversationId, messageId: lastOtherMessage.id });
                 wsClient.markRead(conversationId, lastOtherMessage.id);
             });
+
+            // Clear unread count immediately (optimistic)
+            useChatStore.getState().updateConversation(conversationId, { unreadCount: 0 });
         }
     }, [conversationMessages, conversationId, user]);
 
