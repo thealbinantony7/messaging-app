@@ -351,6 +351,7 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                         });
                         break;
 
+
                     case 'read': {
                         const { conversationId, messageId } = message.payload;
                         const readStartTime = Date.now();

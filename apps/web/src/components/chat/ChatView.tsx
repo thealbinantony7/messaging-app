@@ -5,6 +5,7 @@ import { useUIStore } from '../../stores/ui';
 import { useChatStore } from '../../stores/chat';
 import { useAuthStore } from '../../stores/auth';
 import { api } from '../../lib/api';
+import { wsClient } from '../../lib/ws';
 import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
 import './ChatView.css';
@@ -41,6 +42,16 @@ export function ChatView({ conversationId }: Props) {
     const fetchMessages = useChatStore((state) => state.fetchMessages);
     const sendMessage = useChatStore((state) => state.sendMessage);
     const retryMessage = useChatStore((state) => state.retryMessage);
+
+    // Offline detection (Phase 4: Trust & Delivery)
+    const [isOnline, setIsOnline] = useState(wsClient.isConnected);
+
+    useEffect(() => {
+        const checkConnection = setInterval(() => {
+            setIsOnline(wsClient.isConnected);
+        }, 1000);
+        return () => clearInterval(checkConnection);
+    }, []);
 
     // Compute delivery/seen status for a message
     const getMessageStatus = (messageId: string): 'sent' | 'delivered' | 'read' => {
@@ -169,7 +180,7 @@ export function ChatView({ conversationId }: Props) {
     };
 
     const handleSend = () => {
-        if (!message.trim()) return;
+        if (!message.trim() || !isOnline) return; // Block send when offline
 
         // Stop typing indicator
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -471,8 +482,9 @@ export function ChatView({ conversationId }: Props) {
 
                         {message.trim() ? (
                             <button
-                                className="p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-none"
+                                className="p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-none disabled:opacity-50 disabled:cursor-not-allowed"
                                 onClick={handleSend}
+                                disabled={!isOnline}
                                 aria-label="Send message"
                             >
                                 <Send size={20} strokeWidth={2} className="ml-0.5" />

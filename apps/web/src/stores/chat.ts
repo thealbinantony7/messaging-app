@@ -32,6 +32,11 @@ interface ChatState {
     updatePendingMessage: (conversationId: string, messageId: string, status: MessageStatus) => void;
     removePendingMessage: (conversationId: string, messageId: string) => void;
 
+    // Message status tracking (Phase 4: Trust & Delivery)
+    messageStatus: Record<string, Record<string, MessageStatus>>; // conversationId -> messageId -> status
+    messageTimeouts: Map<string, NodeJS.Timeout>; // messageId -> timeout
+    handleMessageTimeout: (messageId: string, conversationId: string) => void;
+
     // Typing indicators
     typingUsers: Record<string, string[]>; // conversationId -> userIds
     setTypingUser: (conversationId: string, userId: string, isTyping: boolean) => void;
@@ -131,6 +136,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // Pending messages
     pendingMessages: {},
+
+    // Message status tracking
+    messageStatus: {},
+    messageTimeouts: new Map(),
+
     addPendingMessage: (conversationId, message) => set((state) => ({
         pendingMessages: {
             ...state.pendingMessages,
@@ -363,10 +373,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 ...state.pendingMessages,
                 [conversationId]: [...(state.pendingMessages[conversationId] || []), pendingMsg],
             },
+            // Initialize message status
+            messageStatus: {
+                ...state.messageStatus,
+                [conversationId]: {
+                    ...state.messageStatus[conversationId],
+                    [id]: 'pending' as MessageStatus
+                }
+            }
         }));
+
+        // Start 10s timeout for failure detection
+        const timeout = setTimeout(() => {
+            get().handleMessageTimeout(id, conversationId);
+        }, 10000);
+        get().messageTimeouts.set(id, timeout);
 
         // Send via WS
         wsClient.sendMessage(id, conversationId, content, type);
+
+        console.log('[MSG_STATE]', { messageId: id, from: null, to: 'pending', timestamp: Date.now() });
     },
 
     retryMessage: (conversationId: string, messageId: string) => {
@@ -375,7 +401,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         if (!failedMessage) return;
 
-        // Update status to sending
+        // CRITICAL: Reuse the same messageId, do NOT generate a new one
+        // Backend is idempotent (ON CONFLICT DO UPDATE)
+
+        // Update status to pending (sending)
         set((state) => ({
             pendingMessages: {
                 ...state.pendingMessages,
@@ -383,15 +412,53 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     m.id === messageId ? { ...m, status: 'sending' } : m
                 ),
             },
+            messageStatus: {
+                ...state.messageStatus,
+                [conversationId]: {
+                    ...state.messageStatus[conversationId],
+                    [messageId]: 'pending' as MessageStatus
+                }
+            }
         }));
 
-        // Retry sending via WS with original message ID
+        console.log('[MSG_RETRY]', { messageId, conversationId, timestamp: Date.now() });
+
+        // Start new timeout
+        const timeout = setTimeout(() => {
+            get().handleMessageTimeout(messageId, conversationId);
+        }, 10000);
+        get().messageTimeouts.set(messageId, timeout);
+
+        // Retry with SAME message ID
         wsClient.sendMessage(
-            failedMessage.id,
+            failedMessage.id,  // ← Same ID, not crypto.randomUUID()
             failedMessage.conversationId,
             failedMessage.content,
             failedMessage.type as 'text' | 'image' | 'video' | 'voice'
         );
+    },
+
+    // Timeout handler
+    handleMessageTimeout: (messageId: string, conversationId: string) => {
+        const currentStatus = get().messageStatus[conversationId]?.[messageId];
+        if (currentStatus === 'pending') {
+            set((state) => ({
+                pendingMessages: {
+                    ...state.pendingMessages,
+                    [conversationId]: (state.pendingMessages[conversationId] || []).map((m) =>
+                        m.id === messageId ? { ...m, status: 'failed' } : m
+                    ),
+                },
+                messageStatus: {
+                    ...state.messageStatus,
+                    [conversationId]: {
+                        ...state.messageStatus[conversationId],
+                        [messageId]: 'failed'
+                    }
+                }
+            }));
+            console.log('[MSG_STATE]', { messageId, from: 'pending', to: 'failed', reason: 'timeout', timestamp: Date.now() });
+        }
     },
 
     // WebSocket Event Handlers
@@ -399,7 +466,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const { id, status } = payload;
 
         // Find which conversation this message belongs to (search pending)
-        const { pendingMessages } = get();
+        const { pendingMessages, messageTimeouts } = get();
         let conversationId: string | undefined;
 
         for (const [cid, msgs] of Object.entries(pendingMessages)) {
@@ -411,7 +478,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         if (!conversationId) return;
 
+        // Clear timeout
+        const timeout = messageTimeouts.get(id);
+        if (timeout) {
+            clearTimeout(timeout);
+            messageTimeouts.delete(id);
+        }
+
         if (status === 'error') {
+            // Transition pending → failed
             set((state) => ({
                 pendingMessages: {
                     ...state.pendingMessages,
@@ -419,9 +494,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         m.id === id ? { ...m, status: 'failed' } : m
                     ),
                 },
+                messageStatus: {
+                    ...state.messageStatus,
+                    [conversationId!]: {
+                        ...state.messageStatus[conversationId!],
+                        [id]: 'failed'
+                    }
+                }
             }));
+            console.log('[MSG_STATE]', { messageId: id, from: 'pending', to: 'failed', reason: 'server_error', timestamp: Date.now() });
         } else {
-            // Update status to 'sent' in pending
+            // Transition pending → sent
             set((state) => ({
                 pendingMessages: {
                     ...state.pendingMessages,
@@ -429,7 +512,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         m.id === id ? { ...m, status: 'sent' } : m
                     ),
                 },
+                messageStatus: {
+                    ...state.messageStatus,
+                    [conversationId!]: {
+                        ...state.messageStatus[conversationId!],
+                        [id]: 'sent'
+                    }
+                }
             }));
+            console.log('[MSG_STATE]', { messageId: id, from: 'pending', to: 'sent', timestamp: Date.now() });
         }
     },
 
@@ -570,6 +661,50 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
 
         return { ...newMessages, conversations };
-    })
+    }),
+
+    handleDeliveryReceipt: (payload) => {
+        const { messageId, conversationId } = payload;
+        const currentStatus = get().messageStatus[conversationId]?.[messageId];
+
+        // Terminal guard: ignore if already read
+        if (currentStatus === 'read') return;
+
+        // Transition sent → delivered
+        if (currentStatus === 'sent') {
+            set((state) => ({
+                messageStatus: {
+                    ...state.messageStatus,
+                    [conversationId]: {
+                        ...state.messageStatus[conversationId],
+                        [messageId]: 'delivered'
+                    }
+                }
+            }));
+            console.log('[MSG_STATE]', { messageId, from: 'sent', to: 'delivered', timestamp: Date.now() });
+        }
+    },
+
+    handleReadReceipt: (payload) => {
+        const { messageId, conversationId } = payload;
+        const currentStatus = get().messageStatus[conversationId]?.[messageId];
+
+        // Terminal guard: ignore if already read
+        if (currentStatus === 'read') return;
+
+        // Transition delivered → read (or sent → read if delivered was missed)
+        if (currentStatus === 'delivered' || currentStatus === 'sent') {
+            set((state) => ({
+                messageStatus: {
+                    ...state.messageStatus,
+                    [conversationId]: {
+                        ...state.messageStatus[conversationId],
+                        [messageId]: 'read'
+                    }
+                }
+            }));
+            console.log('[MSG_STATE]', { messageId, from: currentStatus, to: 'read', timestamp: Date.now() });
+        }
+    },
 }));
 
