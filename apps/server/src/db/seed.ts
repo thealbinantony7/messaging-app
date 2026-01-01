@@ -51,7 +51,7 @@ async function seed() {
             LIMIT 1;
         `, [aliceId, bobId]);
 
-    if (existingDm.rowCount > 0) {
+    if (existingDm.rowCount && existingDm.rowCount > 0) {
       dmId = existingDm.rows[0].id;
     } else {
       const res = await pool.query(`INSERT INTO conversations (type) VALUES ('dm') RETURNING id`);
@@ -78,7 +78,7 @@ async function seed() {
     const groupName = 'Project Team';
     const existingGroup = await pool.query(`SELECT id FROM conversations WHERE type = 'group' AND name = $1 LIMIT 1`, [groupName]);
 
-    if (existingGroup.rowCount > 0) {
+    if (existingGroup.rowCount && existingGroup.rowCount > 0) {
       groupId = existingGroup.rows[0].id;
     } else {
       const res = await pool.query(`INSERT INTO conversations (type, name) VALUES ('group', $1) RETURNING id`, [groupName]);
