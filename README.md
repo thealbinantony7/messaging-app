@@ -70,3 +70,18 @@ Lucent is a modern, production-grade messaging platform built for speed, reliabi
 
 ## 🛡 License
 Licensed under the MIT License. Built with ❤️ by Albin Antony.
+
+---
+
+## 📊 Project Metrics
+
+| Metric | Value |
+|--------|-------|
+| ⚡ **Lines of Code** | **504,423** |
+| 📁 **Total Files** | 24,924 |
+| ⏱️ **Dev Time** | 1 Day, 6 Hours |
+| 🚀 **Total Commits** | 68 |
+| 📦 **Project Size** | 182.5 MB |
+
+*More detailed metrics can be found in [PROJECT_STATS.md](./PROJECT_STATS.md)*
+
