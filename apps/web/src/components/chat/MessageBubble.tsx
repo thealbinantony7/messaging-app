@@ -277,10 +277,9 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
 
     return (
         <motion.div
-            className={`message-bubble ${isOwn ? 'own !bg-blue-600 !text-white !rounded-2xl !rounded-tr-sm' : 'other !bg-zinc-800 !text-zinc-100 !rounded-2xl !rounded-tl-sm'} ${isFailed ? 'failed' : ''} ${isGrouped ? '!mt-0.5' : '!mt-3'} !shadow-sm !px-4 !py-2.5 max-w-[75%] md:max-w-[60%]`}
-            initial={{ opacity: 0, y: 10, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className={`message-bubble relative max-w-[75%] md:max-w-[65%] px-4 py-2.5 shadow-none ${isOwn ? 'ml-auto bg-primary text-primary-foreground rounded-[1.25rem] rounded-tr-sm' : 'bg-secondary text-secondary-foreground rounded-[1.25rem] rounded-tl-sm'} ${isFailed ? 'opacity-50' : ''} ${isGrouped ? 'mt-0.5' : 'mt-4'}`}
+            // Removed animated transitions for a flat, instant feel
+            layout={false}
             style={{ zIndex: showMenu ? 10 : 'auto', position: 'relative', pointerEvents: 'auto' }}
             onContextMenu={(e) => {
                 e.preventDefault();
@@ -375,23 +374,22 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
             )}
 
             {/* Content */}
-            <div className={`message-content ${isDeleted ? 'deleted' : ''} !text-[15px] !leading-relaxed`}>
+            <div className={`message-content ${isDeleted ? 'italic opacity-60' : ''} text-[15px] leading-relaxed break-words`}>
                 {renderContent()}
             </div>
 
             {/* Footer */}
-            <div className="message-footer !mt-1 !text-[11px] !opacity-60">
-                {message.editedAt && !isDeleted && <span className="message-edited">edited</span>}
-                <span className="message-time">{formatTime(message.createdAt)}</span>
+            <div className={`flex items-center justify-end gap-1 mt-1 text-[11px] ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                {message.editedAt && !isDeleted && <span>edited</span>}
+                <span>{formatTime(message.createdAt)}</span>
                 {renderStatus()}
                 {isFailed && onRetry && (
                     <button
-                        className="message-retry-btn"
+                        className="ml-1 hover:underline"
                         onClick={onRetry}
                         aria-label="Retry sending message"
                     >
-                        <RotateCw size={12} />
-                        <span>Retry</span>
+                        Retry
                     </button>
                 )}
             </div>

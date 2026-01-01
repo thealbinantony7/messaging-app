@@ -239,7 +239,7 @@ export function ChatView({ conversationId }: Props) {
     return (
         <div className="chat-view">
             {/* Header */}
-            <header className="chat-header glass !h-[72px] !px-6 !border-b !border-white/5 backdrop-blur-md bg-black/40">
+            <header className="chat-header h-16 px-6 border-b border-border/40 bg-background/95 backdrop-blur-sm flex items-center justify-between sticky top-0 z-10 w-full">
                 <div className="chat-header-left gap-4">
                     {isMobile && (
                         <button
@@ -250,23 +250,23 @@ export function ChatView({ conversationId }: Props) {
                             <ArrowLeft size={20} />
                         </button>
                     )}
-                    <div className="chat-header-avatar !w-10 !h-10 shadow-sm ring-1 ring-white/10">
+                    <div className="chat-header-avatar relative w-10 h-10">
                         {displayInfo.avatar ? (
-                            <img src={displayInfo.avatar} alt={displayInfo.name} />
+                            <img src={displayInfo.avatar} alt={displayInfo.name} className="w-full h-full object-cover rounded-full" />
                         ) : (
-                            <div className="chat-header-avatar-fallback !bg-zinc-800 !text-zinc-400">
+                            <div className="flex items-center justify-center w-full h-full rounded-full bg-secondary text-secondary-foreground font-medium text-sm">
                                 {displayInfo.name.charAt(0).toUpperCase()}
                             </div>
                         )}
                     </div>
-                    <div className="chat-header-info">
-                        <h2 className="chat-header-name !text-[16px] !font-medium text-zinc-100">{displayInfo.name}</h2>
-                        <span className="chat-header-status !text-[13px] text-zinc-500 font-normal">{displayInfo.status}</span>
+                    <div className="chat-header-info flex flex-col justify-center">
+                        <h2 className="text-sm font-semibold text-foreground leading-none mb-1">{displayInfo.name}</h2>
+                        <span className="text-xs text-muted-foreground font-normal leading-none">{displayInfo.status}</span>
                     </div>
                 </div>
                 <div className="chat-header-actions gap-2">
                     <button
-                        className="chat-header-btn hover:bg-white/5 !rounded-lg !w-10 !h-10 text-zinc-400 hover:text-white transition-colors"
+                        className="p-2 rounded-full hover:bg-accent text-zinc-400 hover:text-foreground transition-colors"
                         aria-label="Copy invite link"
                         onClick={async () => {
                             try {
@@ -278,13 +278,13 @@ export function ChatView({ conversationId }: Props) {
                             }
                         }}
                     >
-                        <Link size={20} />
+                        <Link size={20} className="w-5 h-5" />
                     </button>
-                    <button className="chat-header-btn hover:bg-white/5 !rounded-lg !w-10 !h-10 text-zinc-400 hover:text-white transition-colors" aria-label="Search">
-                        <Search size={20} />
+                    <button className="p-2 rounded-full hover:bg-accent text-zinc-400 hover:text-foreground transition-colors" aria-label="Search">
+                        <Search size={20} className="w-5 h-5" />
                     </button>
-                    <button className="chat-header-btn hover:bg-white/5 !rounded-lg !w-10 !h-10 text-zinc-400 hover:text-white transition-colors" aria-label="More options">
-                        <MoreVertical size={20} />
+                    <button className="p-2 rounded-full hover:bg-accent text-zinc-400 hover:text-foreground transition-colors" aria-label="More options">
+                        <MoreVertical size={20} className="w-5 h-5" />
                     </button>
                 </div>
             </header>
@@ -366,7 +366,7 @@ export function ChatView({ conversationId }: Props) {
             </div>
 
             {/* Input */}
-            <div className="chat-input glass !border-t !border-white/5 bg-black/40 backdrop-blur-xl pb-6 pt-4 px-6">
+            <div className="chat-input border-t border-border/40 bg-background p-4">
                 {!canSendMessages ? (
                     <div className="chat-input-readonly">
                         <p>Only admins can send messages in this channel</p>
@@ -408,18 +408,18 @@ export function ChatView({ conversationId }: Props) {
                             }}
                         />
                         <button
-                            className="chat-input-btn hover:bg-white/5 rounded-full w-10 h-10 text-zinc-400 hover:text-white transition-colors"
+                            className="p-2 rounded-full hover:bg-accent text-zinc-400 hover:text-foreground transition-colors"
                             aria-label="Send image"
                             onClick={() => document.getElementById('image-upload')?.click()}
                         >
-                            <Image size={20} />
+                            <Image size={22} strokeWidth={1.5} />
                         </button>
 
-                        <div className="chat-input-wrapper">
+                        <div className="chat-input-wrapper flex-1 relative mx-2">
                             <textarea
                                 ref={inputRef}
-                                className="chat-input-field !bg-zinc-800/40 !border-white/5 focus:!border-white/10 !rounded-2xl !text-[15px] !text-zinc-100 placeholder:text-zinc-500 !px-4 !py-3"
-                                placeholder="Type a message..."
+                                className="w-full bg-secondary/30 border border-transparent focus:border-border/60 rounded-[1.25rem] text-[15px] text-foreground placeholder:text-muted-foreground px-4 py-3 min-h-[44px] max-h-[120px] resize-none focus:outline-none transition-all"
+                                placeholder="Message"
                                 value={message}
                                 onChange={handleInputChange}
                                 onKeyDown={handleKeyDown}
@@ -428,9 +428,9 @@ export function ChatView({ conversationId }: Props) {
 
                             {/* AI rewrite button */}
                             {message.trim() && (
-                                <div className="chat-input-ai">
+                                <div className="absolute right-2 bottom-2">
                                     <button
-                                        className="chat-input-ai-btn !rounded-lg shadow-sm"
+                                        className="p-1.5 rounded-full hover:bg-background/80 text-accent transition-colors"
                                         onClick={() => setShowAiMenu(!showAiMenu)}
                                         aria-label="AI rewrite"
                                     >
@@ -440,22 +440,22 @@ export function ChatView({ conversationId }: Props) {
                                     <AnimatePresence>
                                         {showAiMenu && (
                                             <motion.div
-                                                className="chat-ai-menu glass"
+                                                className="absolute bottom-full right-0 mb-2 bg-popover border border-border rounded-lg shadow-lg p-1 min-w-[160px] z-50 overflow-hidden"
                                                 initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                                                 transition={{ duration: 0.15 }}
                                             >
-                                                <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
+                                                <button className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md" onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
                                                     ✨ Make shorter
                                                 </button>
-                                                <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
+                                                <button className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md" onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
                                                     📝 Make clearer
                                                 </button>
-                                                <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
+                                                <button className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md" onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
                                                     👔 Make formal
                                                 </button>
-                                                <button onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
+                                                <button className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-accent rounded-md" onClick={() => addToast({ type: 'info', message: 'AI rewrite not implemented' })}>
                                                     😊 Make casual
                                                 </button>
                                             </motion.div>
@@ -465,21 +465,21 @@ export function ChatView({ conversationId }: Props) {
                             )}
                         </div>
 
-                        <button className="chat-input-btn hover:bg-white/5 rounded-full w-10 h-10 text-zinc-400 hover:text-white transition-colors" aria-label="Emoji">
-                            <Smile size={20} />
+                        <button className="p-2 rounded-full hover:bg-accent text-zinc-400 hover:text-foreground transition-colors" aria-label="Emoji">
+                            <Smile size={22} strokeWidth={1.5} />
                         </button>
 
                         {message.trim() ? (
                             <button
-                                className="chat-input-send !rounded-full !bg-blue-600 shadow-md shadow-blue-900/20"
+                                className="p-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-none"
                                 onClick={handleSend}
                                 aria-label="Send message"
                             >
-                                <Send size={18} />
+                                <Send size={20} strokeWidth={2} className="ml-0.5" />
                             </button>
                         ) : (
-                            <button className="chat-input-btn hover:bg-white/5 rounded-full w-10 h-10 text-zinc-400 hover:text-white transition-colors" aria-label="Voice message">
-                                <Mic size={20} />
+                            <button className="p-2 rounded-full hover:bg-accent text-zinc-400 hover:text-foreground transition-colors" aria-label="Voice message">
+                                <Mic size={22} strokeWidth={1.5} />
                             </button>
                         )}
                     </>
