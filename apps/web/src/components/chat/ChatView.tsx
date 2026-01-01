@@ -75,7 +75,6 @@ export function ChatView({ conversationId }: Props) {
     const prevMessageCount = useRef(0);
 
     useEffect(() => {
-        const isConversationChange = prevConversationId.current !== conversationId;
         const totalMessages = conversationMessages.length + pending.length;
 
         // Instant scroll always for stability
