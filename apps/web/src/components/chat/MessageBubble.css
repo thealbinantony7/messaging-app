@@ -144,10 +144,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    /* PHASE 6: Explicit color for sent/delivered - visible on dark bubbles */
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .message-status-icon.sending {
     opacity: 0.5;
+    color: rgba(255, 255, 255, 0.4);
     animation: pulse 2s ease-in-out infinite;
 }
 
@@ -163,12 +166,9 @@
     }
 }
 
+/* PHASE 6: Explicit blue for read state - visible on any background */
 .message-status-icon.read {
-    color: #ffffff;
-}
-
-.message-bubble.other .message-status-icon.read {
-    color: var(--color-accent);
+    color: #60a5fa;
 }
 
 .message-status-icon.failed {

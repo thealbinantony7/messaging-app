@@ -42,7 +42,9 @@ export const messageRoutes: FastifyPluginAsync = async (fastify) => {
                 SELECT 
                     m.id, m.conversation_id as "conversationId", m.sender_id as "senderId",
                     m.content, m.type, m.reply_to_id as "replyToId",
-                    m.edited_at as "editedAt", m.deleted_at as "deletedAt", m.created_at as "createdAt",
+                    m.edited_at as "editedAt", m.deleted_at as "deletedAt", 
+                    m.delivered_at as "deliveredAt", m.read_at as "readAt",
+                    m.created_at as "createdAt",
                     u.id as "user_id", u.email, u.display_name, u.avatar_url, u.status, u.last_seen_at, u.created_at as "user_created_at"
                 FROM messages m
                 JOIN users u ON m.sender_id = u.id
@@ -79,6 +81,8 @@ export const messageRoutes: FastifyPluginAsync = async (fastify) => {
                 replyToId: row.replyToId,
                 editedAt: row.editedAt,
                 deletedAt: row.deletedAt,
+                deliveredAt: row.deliveredAt,  // PHASE 6: Backend-authoritative
+                readAt: row.readAt,              // PHASE 6: Backend-authoritative
                 createdAt: row.createdAt,
                 sender: {
                     id: row.user_id,
@@ -160,6 +164,8 @@ export const messageRoutes: FastifyPluginAsync = async (fastify) => {
                 replyToId: null,
                 editedAt: null,
                 deletedAt: null,
+                deliveredAt: null,  // PHASE 6: Not delivered yet
+                readAt: null,        // PHASE 6: Not read yet
                 createdAt: result.created_at,
                 sender: {
                     id: sender!.id,

@@ -69,11 +69,26 @@ CREATE TABLE IF NOT EXISTS messages (
     reply_to_id     UUID REFERENCES messages(id) ON DELETE SET NULL,
     edited_at       TIMESTAMPTZ,
     deleted_at      TIMESTAMPTZ,
+    delivered_at    TIMESTAMPTZ,  -- PHASE 6: Backend-authoritative delivery timestamp
+    read_at         TIMESTAMPTZ,  -- PHASE 6: Backend-authoritative read timestamp
     created_at      TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_conv_created ON messages(conversation_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_reply ON messages(reply_to_id) WHERE reply_to_id IS NOT NULL;
+
+-- PHASE 6: Add columns to existing table if not present (idempotent migration)
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'messages' AND column_name = 'delivered_at') THEN 
+        ALTER TABLE messages ADD COLUMN delivered_at TIMESTAMPTZ NULL; 
+    END IF; 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'messages' AND column_name = 'read_at') THEN 
+        ALTER TABLE messages ADD COLUMN read_at TIMESTAMPTZ NULL; 
+    END IF; 
+END $$;
 
 -- Add foreign key for last_read_msg_id safely
 DO $$ 

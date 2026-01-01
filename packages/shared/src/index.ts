@@ -78,6 +78,8 @@ export interface Message {
     replyToId: UUID | null;
     editedAt: ISODateString | null;
     deletedAt: ISODateString | null;
+    deliveredAt: ISODateString | null;  // PHASE 6: Backend-authoritative delivery timestamp
+    readAt: ISODateString | null;        // PHASE 6: Backend-authoritative read timestamp
     createdAt: ISODateString;
 }
 
@@ -218,8 +220,10 @@ export interface TypingIndicatorPayload {
 
 export interface ReadReceiptPayload {
     conversationId: UUID;
-    userId: UUID;
+    userId?: UUID;
     messageId: UUID;
+    deliveredAt?: ISODateString;  // PHASE 6: Backend-authoritative delivery timestamp
+    readAt?: ISODateString;        // PHASE 6: Backend-authoritative read timestamp
 }
 
 export interface ReactionUpdatedPayload {

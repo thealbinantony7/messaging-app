@@ -224,6 +224,8 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                                 replyToId: replyToId || null,
                                 editedAt: null,
                                 deletedAt: null,
+                                deliveredAt: null,  // PHASE 6: Not delivered yet
+                                readAt: null,        // PHASE 6: Not read yet
                                 createdAt: dbMessage.created_at,
                                 sender: sender!,
                                 replyTo: null, // TODO: fetch if replyToId provided
@@ -246,7 +248,7 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                             // Log: msg.send.broadcast
                             fastify.log.info({ event: 'msg.send.broadcast', messageId: id, conversationId, userId, timestamp: new Date().toISOString() }, 'Message broadcast via Redis');
 
-                            // Send delivery receipts to sender (for DMs and groups, not channels)
+                            // PHASE 6: Send delivery receipts with DB persistence
                             // Get conversation type and other members
                             const convInfo = await queryOne<{ type: string }>('SELECT type FROM conversations WHERE id = $1', [conversationId]);
 
@@ -254,21 +256,28 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                                 // Get other members who are online
                                 const otherMembers = await query<{ user_id: string }>('SELECT user_id FROM conversation_members WHERE conversation_id = $1 AND user_id != $2', [conversationId, userId]);
 
-                                // Send delivery receipt for each online member
-                                for (const member of otherMembers) {
-                                    if (isUserOnline(member.user_id)) {
-                                        await broadcastToConversation(conversationId, {
-                                            type: 'delivery_receipt',
-                                            payload: {
-                                                conversationId,
-                                                userId: member.user_id,
-                                                messageId: id,
-                                            },
-                                        });
+                                // Check if any other member is online
+                                const hasOnlineMember = otherMembers.some(m => isUserOnline(m.user_id));
 
-                                        // Log: msg.delivery.sent
-                                        fastify.log.info({ event: 'msg.delivery.sent', messageId: id, conversationId, recipientUserId: member.user_id, senderUserId: userId, timestamp: new Date().toISOString() }, 'Delivery receipt sent');
-                                    }
+                                if (hasOnlineMember) {
+                                    // PHASE 6: Persist delivered_at to DB (authoritative)
+                                    const deliveredAt = new Date().toISOString();
+                                    await query(
+                                        'UPDATE messages SET delivered_at = $1 WHERE id = $2 AND delivered_at IS NULL',
+                                        [deliveredAt, id]
+                                    );
+
+                                    // Broadcast delivery receipt with timestamp
+                                    await broadcastToConversation(conversationId, {
+                                        type: 'delivery_receipt',
+                                        payload: {
+                                            conversationId,
+                                            messageId: id,
+                                            deliveredAt,  // PHASE 6: Include timestamp
+                                        },
+                                    });
+
+                                    fastify.log.info({ event: 'msg.delivery.persisted', messageId: id, conversationId, deliveredAt, timestamp: new Date().toISOString() }, 'Delivery persisted to DB');
                                 }
                             }
                         } catch (err) {
@@ -359,7 +368,14 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                         // Log: msg.read.received
                         fastify.log.info({ event: 'msg.read.received', messageId, conversationId, userId, timestamp: new Date().toISOString() }, 'Read event received');
 
-                        // Update last read message
+                        // PHASE 6: Persist read_at to message (authoritative)
+                        const readAt = new Date().toISOString();
+                        await query(
+                            'UPDATE messages SET read_at = $1 WHERE id = $2 AND read_at IS NULL',
+                            [readAt, messageId]
+                        );
+
+                        // Update last read message in conversation_members
                         await query(
                             `UPDATE conversation_members SET last_read_msg_id = $1 
                WHERE conversation_id = $2 AND user_id = $3`,
@@ -367,16 +383,16 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                         );
 
                         // Log: msg.read.persisted
-                        fastify.log.info({ event: 'msg.read.persisted', messageId, conversationId, userId, latencyMs: Date.now() - readStartTime, timestamp: new Date().toISOString() }, 'Read state persisted to DB');
+                        fastify.log.info({ event: 'msg.read.persisted', messageId, conversationId, userId, readAt, latencyMs: Date.now() - readStartTime, timestamp: new Date().toISOString() }, 'Read state persisted to DB');
 
-                        // Broadcast read receipt
+                        // PHASE 6: Broadcast read receipt with authoritative timestamp
                         await broadcastToConversation(conversationId, {
                             type: 'read_receipt',
-                            payload: { conversationId, userId, messageId },
+                            payload: { conversationId, userId, messageId, readAt },
                         });
 
                         // Log: msg.read.broadcast
-                        fastify.log.info({ event: 'msg.read.broadcast', messageId, conversationId, userId, timestamp: new Date().toISOString() }, 'Read receipt broadcast via Redis');
+                        fastify.log.info({ event: 'msg.read.broadcast', messageId, conversationId, userId, readAt, timestamp: new Date().toISOString() }, 'Read receipt broadcast via Redis');
                         break;
                     }
 

@@ -137,17 +137,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Pending messages
     pendingMessages: {},
 
-    // Message status tracking (PHASE 5: rehydrate from localStorage for terminal state persistence)
-    messageStatus: (() => {
-        try {
-            const stored = localStorage.getItem('messageStatus');
-            if (stored) {
-                console.log('[PHASE5] Rehydrating messageStatus from localStorage');
-                return JSON.parse(stored);
-            }
-        } catch { }
-        return {};
-    })(),
+    // PHASE 6: messageStatus kept for interface compatibility but no longer used
+    // Status is now derived from message.deliveredAt/readAt
+    messageStatus: {},
     messageTimeouts: new Map(),
 
     addPendingMessage: (conversationId, message) => set((state) => ({
@@ -421,6 +413,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             replyToId: null,
             editedAt: null,
             deletedAt: null,
+            deliveredAt: null,  // PHASE 6: Not delivered yet
+            readAt: null,        // PHASE 6: Not read yet
             createdAt: timestamp,
             sender: user,
             replyTo: null,
@@ -718,59 +712,38 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         return { ...newMessages, conversations };
     }),
-
+    // PHASE 6: Backend-authoritative delivery receipt handler
+    // Simply update the message's deliveredAt from backend payload
     handleDeliveryReceipt: (payload) => {
-        const { messageId, conversationId } = payload;
-        const currentStatus = get().messageStatus[conversationId]?.[messageId];
+        const { messageId, conversationId, deliveredAt } = payload;
+        if (!deliveredAt) return;
 
-        // Terminal guard: ignore if already read
-        if (currentStatus === 'read') return;
-
-        // Transition sent → delivered
-        if (currentStatus === 'sent') {
-            set((state) => {
-                const newStatus = {
-                    ...state.messageStatus,
-                    [conversationId]: {
-                        ...state.messageStatus[conversationId],
-                        [messageId]: 'delivered' as const
-                    }
-                };
-                // PHASE 5: Persist terminal states to localStorage
-                try {
-                    localStorage.setItem('messageStatus', JSON.stringify(newStatus));
-                } catch { }
-                return { messageStatus: newStatus };
-            });
-            console.log('[MSG_STATE]', { messageId, from: 'sent', to: 'delivered', timestamp: Date.now() });
-        }
+        set((state) => ({
+            messages: {
+                ...state.messages,
+                [conversationId]: (state.messages[conversationId] || []).map(m =>
+                    m.id === messageId && !m.deliveredAt ? { ...m, deliveredAt } : m
+                )
+            }
+        }));
+        console.log('[PHASE6] Delivery receipt', { messageId, deliveredAt });
     },
 
+    // PHASE 6: Backend-authoritative read receipt handler
+    // Simply update the message's readAt from backend payload
     handleReadReceipt: (payload) => {
-        const { messageId, conversationId } = payload;
-        const currentStatus = get().messageStatus[conversationId]?.[messageId];
+        const { messageId, conversationId, readAt } = payload;
+        if (!readAt) return;
 
-        // Terminal guard: ignore if already read
-        if (currentStatus === 'read') return;
-
-        // Transition delivered → read (or sent → read if delivered was missed)
-        if (currentStatus === 'delivered' || currentStatus === 'sent') {
-            set((state) => {
-                const newStatus = {
-                    ...state.messageStatus,
-                    [conversationId]: {
-                        ...state.messageStatus[conversationId],
-                        [messageId]: 'read' as const
-                    }
-                };
-                // PHASE 5: Persist terminal states to localStorage
-                try {
-                    localStorage.setItem('messageStatus', JSON.stringify(newStatus));
-                } catch { }
-                return { messageStatus: newStatus };
-            });
-            console.log('[MSG_STATE]', { messageId, from: currentStatus, to: 'read', timestamp: Date.now() });
-        }
+        set((state) => ({
+            messages: {
+                ...state.messages,
+                [conversationId]: (state.messages[conversationId] || []).map(m =>
+                    m.id === messageId && !m.readAt ? { ...m, readAt } : m
+                )
+            }
+        }));
+        console.log('[PHASE6] Read receipt', { messageId, readAt });
     },
 }));
 

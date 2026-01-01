@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { ArrowLeft, MoreVertical, Search, Image, Mic, Send, Smile, Sparkles, Link } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { MessageWithDetails } from '@linkup/shared';
 import { useUIStore } from '../../stores/ui';
 import { useChatStore } from '../../stores/chat';
 import { useAuthStore } from '../../stores/auth';
@@ -32,8 +33,7 @@ export function ChatView({ conversationId }: Props) {
     // Use separate selectors for better reactivity
     const conversationMessages = useChatStore((state) => state.messages[conversationId] || []);
     const pending = useChatStore((state) => state.pendingMessages[conversationId] || []);
-    // PHASE 5: messageStatus is the ONLY source of truth - legacy receipts removed
-    const messageStatus = useChatStore((state) => state.messageStatus[conversationId] || {});
+    // PHASE 6: No more messageStatus map - status derived from message fields
     const isLoading = useChatStore((state) => state.messagesLoading[conversationId]);
     const conversation = useChatStore((state) => state.conversations.find((c) => c.id === conversationId));
 
@@ -42,7 +42,7 @@ export function ChatView({ conversationId }: Props) {
     const sendMessage = useChatStore((state) => state.sendMessage);
     const retryMessage = useChatStore((state) => state.retryMessage);
 
-    // Offline detection (Phase 4: Trust & Delivery)
+    // Offline detection
     const [isOnline, setIsOnline] = useState(wsClient.isConnected);
 
     useEffect(() => {
@@ -52,18 +52,15 @@ export function ChatView({ conversationId }: Props) {
         return () => clearInterval(checkConnection);
     }, []);
 
-    // PHASE 4.2: Compute delivery/seen status - messageStatus is single source of truth
-    const getMessageStatus = (messageId: string): 'sent' | 'delivered' | 'read' => {
+    // PHASE 6: Derive status directly from message fields (backend-authoritative)
+    const getMessageStatus = (message: MessageWithDetails): 'sent' | 'delivered' | 'read' => {
         // Skip channels - no delivery receipts for channels
         if (conversation?.type === 'channel') return 'sent';
 
-        // PHASE 5: INVARIANT - messageStatus is the ONLY source of truth
-        // Terminal states never downgrade. No legacy fallback allowed.
-        const status = messageStatus[messageId];
-        if (status === 'delivered' || status === 'read') return status;
-        if (status === 'sent') return 'sent';
-
-        // Default for messages not yet tracked (pre-Phase 4 or initial state)
+        // PHASE 6: Backend is the ONLY source of truth
+        // Status is derived from message.deliveredAt/readAt timestamps
+        if (message.readAt) return 'read';
+        if (message.deliveredAt) return 'delivered';
         return 'sent';
     };
 
@@ -103,57 +100,22 @@ export function ChatView({ conversationId }: Props) {
     }, [conversationMessages.length, pending.length, conversationId]);
 
 
-    // PHASE 5: Track last user interaction for mobile-safe read receipts
-    const lastInteractionRef = useRef(Date.now());
-
-    useEffect(() => {
-        const updateInteraction = () => {
-            lastInteractionRef.current = Date.now();
-        };
-
-        // Track touch and scroll for mobile
-        document.addEventListener('touchstart', updateInteraction);
-        document.addEventListener('scroll', updateInteraction, true);
-        window.addEventListener('focus', updateInteraction);
-
-        return () => {
-            document.removeEventListener('touchstart', updateInteraction);
-            document.removeEventListener('scroll', updateInteraction, true);
-            window.removeEventListener('focus', updateInteraction);
-        };
-    }, []);
-
-    // PHASE 5: Mobile-safe read receipt emission - multi-signal visibility check
+    // PHASE 6: Simple read receipt - emit when conversation is open
+    // No visibility hacks, no touch tracking, no scroll detection
+    // Backend is authoritative, we just send the intent
     useEffect(() => {
         if (!conversationMessages.length || !user) return;
-
-        // Multi-signal check: visible + not hidden + connected + recent interaction
-        const isUserPresent =
-            document.visibilityState === 'visible' &&
-            !document.hidden &&
-            wsClient.isConnected &&
-            (Date.now() - lastInteractionRef.current) < 5000;
-
-        if (!isUserPresent) {
-            console.log('[READ_RECEIPT] Skipped - user not present', {
-                visible: document.visibilityState === 'visible',
-                hidden: document.hidden,
-                connected: wsClient.isConnected,
-                recentInteraction: (Date.now() - lastInteractionRef.current) < 5000
-            });
-            return;
-        }
 
         // Get the last message that's not from the current user
         const lastOtherMessage = [...conversationMessages]
             .reverse()
             .find(msg => msg.senderId !== user.id);
 
-        if (lastOtherMessage) {
-            console.log('[READ_RECEIPT] Emitting', {
+        // Only emit if message exists and hasn't been read yet
+        if (lastOtherMessage && !lastOtherMessage.readAt) {
+            console.log('[PHASE6] Marking as read', {
                 conversationId,
                 messageId: lastOtherMessage.id,
-                timestamp: Date.now()
             });
             wsClient.markRead(conversationId, lastOtherMessage.id);
 
@@ -161,50 +123,6 @@ export function ChatView({ conversationId }: Props) {
             useChatStore.getState().updateConversation(conversationId, { unreadCount: 0 });
         }
     }, [conversationMessages, conversationId, user]);
-
-    // PHASE 5: Re-emit read receipt when window becomes visible AND user interacts
-    useEffect(() => {
-        const handleVisibilityChange = () => {
-            // Only emit if visible AND recent interaction
-            const isUserPresent =
-                document.visibilityState === 'visible' &&
-                !document.hidden &&
-                wsClient.isConnected &&
-                (Date.now() - lastInteractionRef.current) < 5000;
-
-            if (isUserPresent && conversationMessages.length > 0 && user) {
-                const lastOtherMessage = [...conversationMessages]
-                    .reverse()
-                    .find(msg => msg.senderId !== user.id);
-
-                if (lastOtherMessage) {
-                    console.log('[READ_RECEIPT] Re-emitting on visibility change', {
-                        conversationId,
-                        messageId: lastOtherMessage.id,
-                        timestamp: Date.now()
-                    });
-                    wsClient.markRead(conversationId, lastOtherMessage.id);
-                }
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, [conversationMessages, conversationId, user]);
-
-    // PHASE 5: iOS pageshow handler for app resume
-    useEffect(() => {
-        const handlePageShow = (e: PageTransitionEvent) => {
-            if (e.persisted) {
-                console.log('[MOBILE] Page restored from bfcache, checking state');
-                // Update interaction time on pageshow
-                lastInteractionRef.current = Date.now();
-            }
-        };
-
-        window.addEventListener('pageshow', handlePageShow);
-        return () => window.removeEventListener('pageshow', handlePageShow);
-    }, []);
 
     // Auto-resize textarea
     useEffect(() => {
@@ -406,7 +324,7 @@ export function ChatView({ conversationId }: Props) {
                                     key={msg.id}
                                     message={msg}
                                     isOwn={msg.senderId === user?.id}
-                                    status={msg.senderId === user?.id ? getMessageStatus(msg.id) : undefined}
+                                    status={msg.senderId === user?.id ? getMessageStatus(msg) : undefined}
                                     isGrouped={isGrouped}
                                 />
                             );
