@@ -124,6 +124,47 @@ export function ChatView({ conversationId }: Props) {
         }
     }, [conversationMessages, conversationId, user]);
 
+    // PHASE 6.1: Dev-mode invariant checks - catch impossible states
+    useEffect(() => {
+        if (import.meta.env.MODE === 'production') return;
+
+        // Invariant 1: Sidebar shows lastMessage but conversation is empty
+        if (conversation?.lastMessage && !conversation.lastMessage.deletedAt &&
+            conversationMessages.length === 0 && !isLoading) {
+            console.error('[INVARIANT VIOLATION] Sidebar has lastMessage but conversation is empty', {
+                conversationId,
+                lastMessage: conversation.lastMessage,
+                messagesCount: conversationMessages.length,
+                isLoading
+            });
+        }
+
+        // Invariant 2-4: Invalid timestamp ordering in messages
+        conversationMessages.forEach(msg => {
+            if (msg.readAt && !msg.deliveredAt) {
+                console.error('[INVARIANT VIOLATION] Message has readAt but no deliveredAt', {
+                    messageId: msg.id,
+                    readAt: msg.readAt,
+                    deliveredAt: msg.deliveredAt
+                });
+            }
+            if (msg.deliveredAt && new Date(msg.deliveredAt) < new Date(msg.createdAt)) {
+                console.error('[INVARIANT VIOLATION] delivered_at < created_at', {
+                    messageId: msg.id,
+                    createdAt: msg.createdAt,
+                    deliveredAt: msg.deliveredAt
+                });
+            }
+            if (msg.readAt && msg.deliveredAt && new Date(msg.readAt) < new Date(msg.deliveredAt)) {
+                console.error('[INVARIANT VIOLATION] read_at < delivered_at', {
+                    messageId: msg.id,
+                    deliveredAt: msg.deliveredAt,
+                    readAt: msg.readAt
+                });
+            }
+        });
+    }, [conversation, conversationMessages, isLoading, conversationId]);
+
     // Auto-resize textarea
     useEffect(() => {
         if (inputRef.current) {
@@ -308,11 +349,20 @@ export function ChatView({ conversationId }: Props) {
                             </div>
                         ))}
                     </div>
-                ) : conversationMessages.length === 0 && pending.length === 0 ? (
-                    <div className="chat-messages-empty">
-                        <p className="text-zinc-500 text-sm">No messages yet. Say hello! 👋</p>
-                    </div>
-                ) : (
+                ) : (() => {
+                    // PHASE 6.1: Proper empty state check - only show if truly empty
+                    // Never show "No messages yet" if sidebar shows lastMessage
+                    const shouldShowEmpty = !isLoading &&
+                        conversationMessages.length === 0 &&
+                        pending.length === 0 &&
+                        (!conversation?.lastMessage || !!conversation.lastMessage.deletedAt);
+
+                    return shouldShowEmpty ? (
+                        <div className="chat-messages-empty">
+                            <p className="text-zinc-500 text-sm">No messages yet. Say hello! 👋</p>
+                        </div>
+                    ) : null;
+                })() || (
                     <div className="chat-messages-list !gap-1 px-4 py-6">
                         {conversationMessages.map((msg, index) => {
                             const prevMsg = index > 0 ? conversationMessages[index - 1] : null;
