@@ -137,8 +137,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Pending messages
     pendingMessages: {},
 
-    // Message status tracking
-    messageStatus: {},
+    // Message status tracking (PHASE 5: rehydrate from localStorage for terminal state persistence)
+    messageStatus: (() => {
+        try {
+            const stored = localStorage.getItem('messageStatus');
+            if (stored) {
+                console.log('[PHASE5] Rehydrating messageStatus from localStorage');
+                return JSON.parse(stored);
+            }
+        } catch { }
+        return {};
+    })(),
     messageTimeouts: new Map(),
 
     addPendingMessage: (conversationId, message) => set((state) => ({
@@ -638,15 +647,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         });
     },
 
-    handleDeliveryReceipt: (payload: import('@linkup/shared').ReadReceiptPayload) => {
-        const { messageId, userId } = payload;
-        get().setDeliveryReceipt(messageId, userId);
-    },
 
-    handleReadReceipt: (payload: import('@linkup/shared').ReadReceiptPayload) => {
-        const { messageId, userId } = payload;
-        get().setSeenReceipt(messageId, userId);
-    },
+    // PHASE 5: Legacy handlers removed - Phase 4 handlers with terminal guards are defined below
+
 
     handleMessageUpdated: (payload) => set((state) => {
         const { conversationId, id, content, editedAt } = payload;
@@ -725,15 +728,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // Transition sent → delivered
         if (currentStatus === 'sent') {
-            set((state) => ({
-                messageStatus: {
+            set((state) => {
+                const newStatus = {
                     ...state.messageStatus,
                     [conversationId]: {
                         ...state.messageStatus[conversationId],
-                        [messageId]: 'delivered'
+                        [messageId]: 'delivered' as const
                     }
-                }
-            }));
+                };
+                // PHASE 5: Persist terminal states to localStorage
+                try {
+                    localStorage.setItem('messageStatus', JSON.stringify(newStatus));
+                } catch { }
+                return { messageStatus: newStatus };
+            });
             console.log('[MSG_STATE]', { messageId, from: 'sent', to: 'delivered', timestamp: Date.now() });
         }
     },
@@ -747,15 +755,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         // Transition delivered → read (or sent → read if delivered was missed)
         if (currentStatus === 'delivered' || currentStatus === 'sent') {
-            set((state) => ({
-                messageStatus: {
+            set((state) => {
+                const newStatus = {
                     ...state.messageStatus,
                     [conversationId]: {
                         ...state.messageStatus[conversationId],
-                        [messageId]: 'read'
+                        [messageId]: 'read' as const
                     }
-                }
-            }));
+                };
+                // PHASE 5: Persist terminal states to localStorage
+                try {
+                    localStorage.setItem('messageStatus', JSON.stringify(newStatus));
+                } catch { }
+                return { messageStatus: newStatus };
+            });
             console.log('[MSG_STATE]', { messageId, from: currentStatus, to: 'read', timestamp: Date.now() });
         }
     },

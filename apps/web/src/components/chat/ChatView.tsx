@@ -32,11 +32,8 @@ export function ChatView({ conversationId }: Props) {
     // Use separate selectors for better reactivity
     const conversationMessages = useChatStore((state) => state.messages[conversationId] || []);
     const pending = useChatStore((state) => state.pendingMessages[conversationId] || []);
-    const deliveryReceipts = useChatStore((state) => state.deliveryReceipts);
-    const seenReceipts = useChatStore((state) => state.seenReceipts);
-    // PHASE 4.1: Use messageStatus map from Phase 4
+    // PHASE 5: messageStatus is the ONLY source of truth - legacy receipts removed
     const messageStatus = useChatStore((state) => state.messageStatus[conversationId] || {});
-    // Removed unused typing selector
     const isLoading = useChatStore((state) => state.messagesLoading[conversationId]);
     const conversation = useChatStore((state) => state.conversations.find((c) => c.id === conversationId));
 
@@ -60,32 +57,13 @@ export function ChatView({ conversationId }: Props) {
         // Skip channels - no delivery receipts for channels
         if (conversation?.type === 'channel') return 'sent';
 
-        // PHASE 4.2: INVARIANT - messageStatus is authoritative, terminal states never downgrade
-        // If messageStatus exists for this message, return it immediately (no fallback)
+        // PHASE 5: INVARIANT - messageStatus is the ONLY source of truth
+        // Terminal states never downgrade. No legacy fallback allowed.
         const status = messageStatus[messageId];
-        if (status) {
-            // Terminal states: delivered and read are final
-            if (status === 'delivered' || status === 'read') return status;
-            // Non-terminal states: sent, pending, failed
-            if (status === 'sent') return 'sent';
-        }
+        if (status === 'delivered' || status === 'read') return status;
+        if (status === 'sent') return 'sent';
 
-        // Fallback to legacy receipts ONLY if messageStatus is undefined
-        // This handles messages from before Phase 4 or edge cases
-        const seenSet = seenReceipts[messageId];
-        if (seenSet && seenSet.size > 0) {
-            const otherMembers = conversation?.members.filter(m => m.userId !== user?.id) || [];
-            const hasSeen = otherMembers.some(m => seenSet.has(m.userId));
-            if (hasSeen) return 'read';
-        }
-
-        const receipts = deliveryReceipts[messageId];
-        if (receipts && receipts.size > 0) {
-            const otherMembers = conversation?.members.filter(m => m.userId !== user?.id) || [];
-            const hasDelivery = otherMembers.some(m => receipts.has(m.userId));
-            if (hasDelivery) return 'delivered';
-        }
-
+        // Default for messages not yet tracked (pre-Phase 4 or initial state)
         return 'sent';
     };
 
@@ -125,14 +103,44 @@ export function ChatView({ conversationId }: Props) {
     }, [conversationMessages.length, pending.length, conversationId]);
 
 
+    // PHASE 5: Track last user interaction for mobile-safe read receipts
+    const lastInteractionRef = useRef(Date.now());
 
-    // Mark messages as read when viewing conversation AND window is focused
+    useEffect(() => {
+        const updateInteraction = () => {
+            lastInteractionRef.current = Date.now();
+        };
+
+        // Track touch and scroll for mobile
+        document.addEventListener('touchstart', updateInteraction);
+        document.addEventListener('scroll', updateInteraction, true);
+        window.addEventListener('focus', updateInteraction);
+
+        return () => {
+            document.removeEventListener('touchstart', updateInteraction);
+            document.removeEventListener('scroll', updateInteraction, true);
+            window.removeEventListener('focus', updateInteraction);
+        };
+    }, []);
+
+    // PHASE 5: Mobile-safe read receipt emission - multi-signal visibility check
     useEffect(() => {
         if (!conversationMessages.length || !user) return;
 
-        // PHASE 4.1: Only emit read receipt if window is visible
-        if (document.visibilityState !== 'visible') {
-            console.log('[READ_RECEIPT] Skipped - window not visible', { visibilityState: document.visibilityState });
+        // Multi-signal check: visible + not hidden + connected + recent interaction
+        const isUserPresent =
+            document.visibilityState === 'visible' &&
+            !document.hidden &&
+            wsClient.isConnected &&
+            (Date.now() - lastInteractionRef.current) < 5000;
+
+        if (!isUserPresent) {
+            console.log('[READ_RECEIPT] Skipped - user not present', {
+                visible: document.visibilityState === 'visible',
+                hidden: document.hidden,
+                connected: wsClient.isConnected,
+                recentInteraction: (Date.now() - lastInteractionRef.current) < 5000
+            });
             return;
         }
 
@@ -142,39 +150,40 @@ export function ChatView({ conversationId }: Props) {
             .find(msg => msg.senderId !== user.id);
 
         if (lastOtherMessage) {
-            // Mark as read via WebSocket
-            import('../../lib/ws').then(({ wsClient }) => {
-                console.log('[READ_RECEIPT] Emitting', {
-                    conversationId,
-                    messageId: lastOtherMessage.id,
-                    visibilityState: document.visibilityState,
-                    timestamp: Date.now()
-                });
-                wsClient.markRead(conversationId, lastOtherMessage.id);
+            console.log('[READ_RECEIPT] Emitting', {
+                conversationId,
+                messageId: lastOtherMessage.id,
+                timestamp: Date.now()
             });
+            wsClient.markRead(conversationId, lastOtherMessage.id);
 
             // Clear unread count immediately (optimistic)
             useChatStore.getState().updateConversation(conversationId, { unreadCount: 0 });
         }
     }, [conversationMessages, conversationId, user]);
 
-    // PHASE 4.1: Re-emit read receipt when window becomes visible
+    // PHASE 5: Re-emit read receipt when window becomes visible AND user interacts
     useEffect(() => {
         const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && conversationMessages.length > 0 && user) {
+            // Only emit if visible AND recent interaction
+            const isUserPresent =
+                document.visibilityState === 'visible' &&
+                !document.hidden &&
+                wsClient.isConnected &&
+                (Date.now() - lastInteractionRef.current) < 5000;
+
+            if (isUserPresent && conversationMessages.length > 0 && user) {
                 const lastOtherMessage = [...conversationMessages]
                     .reverse()
                     .find(msg => msg.senderId !== user.id);
 
                 if (lastOtherMessage) {
-                    import('../../lib/ws').then(({ wsClient }) => {
-                        console.log('[READ_RECEIPT] Re-emitting on focus', {
-                            conversationId,
-                            messageId: lastOtherMessage.id,
-                            timestamp: Date.now()
-                        });
-                        wsClient.markRead(conversationId, lastOtherMessage.id);
+                    console.log('[READ_RECEIPT] Re-emitting on visibility change', {
+                        conversationId,
+                        messageId: lastOtherMessage.id,
+                        timestamp: Date.now()
                     });
+                    wsClient.markRead(conversationId, lastOtherMessage.id);
                 }
             }
         };
@@ -182,6 +191,20 @@ export function ChatView({ conversationId }: Props) {
         document.addEventListener('visibilitychange', handleVisibilityChange);
         return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [conversationMessages, conversationId, user]);
+
+    // PHASE 5: iOS pageshow handler for app resume
+    useEffect(() => {
+        const handlePageShow = (e: PageTransitionEvent) => {
+            if (e.persisted) {
+                console.log('[MOBILE] Page restored from bfcache, checking state');
+                // Update interaction time on pageshow
+                lastInteractionRef.current = Date.now();
+            }
+        };
+
+        window.addEventListener('pageshow', handlePageShow);
+        return () => window.removeEventListener('pageshow', handlePageShow);
+    }, []);
 
     // Auto-resize textarea
     useEffect(() => {
