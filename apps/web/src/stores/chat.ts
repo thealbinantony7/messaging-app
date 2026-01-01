@@ -335,6 +335,59 @@ export const useChatStore = create<ChatState>((set, get) => ({
                     messagesLoading: { ...state.messagesLoading, [conversationId]: false },
                 };
             });
+
+            // PHASE 4.1: Delivery Reconciliation
+            // For each message from current user that's in 'sent' state,
+            // check if any recipients are online → transition to 'delivered'
+            const { user } = useAuthStore.getState();
+            if (!user) return;
+
+            const myMessages = messagesAsc.filter(m => m.senderId === user.id);
+            const conversation = get().conversations.find(c => c.id === conversationId);
+
+            if (conversation && myMessages.length > 0) {
+                // Get online members (check via lastSeenAt - online if seen in last 60s)
+                const onlineMembers = conversation.members.filter(m =>
+                    m.user.id !== user.id &&
+                    m.user.lastSeenAt &&
+                    (Date.now() - new Date(m.user.lastSeenAt).getTime()) < 60000
+                );
+
+                if (onlineMembers.length > 0) {
+                    set((state) => {
+                        const updates: Record<string, MessageStatus> = {};
+
+                        myMessages.forEach(msg => {
+                            const currentStatus = state.messageStatus[conversationId]?.[msg.id];
+                            // Only transition sent → delivered (don't override read/failed)
+                            if (currentStatus === 'sent') {
+                                updates[msg.id] = 'delivered';
+                                console.log('[RECONCILE]', {
+                                    messageId: msg.id,
+                                    from: 'sent',
+                                    to: 'delivered',
+                                    reason: 'fetch_reconciliation',
+                                    onlineMembers: onlineMembers.length,
+                                    timestamp: Date.now()
+                                });
+                            }
+                        });
+
+                        if (Object.keys(updates).length > 0) {
+                            return {
+                                messageStatus: {
+                                    ...state.messageStatus,
+                                    [conversationId]: {
+                                        ...state.messageStatus[conversationId],
+                                        ...updates
+                                    }
+                                }
+                            };
+                        }
+                        return {};
+                    });
+                }
+            }
         } catch (error) {
             console.error('Failed to fetch messages', error);
             set((state) => ({

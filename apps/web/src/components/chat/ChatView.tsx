@@ -34,6 +34,8 @@ export function ChatView({ conversationId }: Props) {
     const pending = useChatStore((state) => state.pendingMessages[conversationId] || []);
     const deliveryReceipts = useChatStore((state) => state.deliveryReceipts);
     const seenReceipts = useChatStore((state) => state.seenReceipts);
+    // PHASE 4.1: Use messageStatus map from Phase 4
+    const messageStatus = useChatStore((state) => state.messageStatus[conversationId] || {});
     // Removed unused typing selector
     const isLoading = useChatStore((state) => state.messagesLoading[conversationId]);
     const conversation = useChatStore((state) => state.conversations.find((c) => c.id === conversationId));
@@ -53,11 +55,17 @@ export function ChatView({ conversationId }: Props) {
         return () => clearInterval(checkConnection);
     }, []);
 
-    // Compute delivery/seen status for a message
+    // PHASE 4.1: Compute delivery/seen status using messageStatus map
     const getMessageStatus = (messageId: string): 'sent' | 'delivered' | 'read' => {
         // Skip channels - no delivery receipts for channels
         if (conversation?.type === 'channel') return 'sent';
 
+        // PHASE 4.1: Use authoritative messageStatus map from Phase 4
+        const status = messageStatus[messageId];
+        if (status === 'delivered') return 'delivered';
+        if (status === 'read') return 'read';
+
+        // Fallback to old logic for backward compatibility
         // Check if seen (read)
         const seenSet = seenReceipts[messageId];
         if (seenSet && seenSet.size > 0) {
@@ -81,6 +89,21 @@ export function ChatView({ conversationId }: Props) {
         fetchMessages(conversationId);
     }, [conversationId, fetchMessages]);
 
+    // PHASE 4.1: Subscribe to conversation on mount
+    useEffect(() => {
+        import('../../lib/ws').then(({ wsClient }) => {
+            console.log('[WS_SUBSCRIBE] Subscribing to conversation', { conversationId, timestamp: Date.now() });
+            wsClient.subscribe([conversationId]);
+        });
+
+        return () => {
+            import('../../lib/ws').then(({ wsClient }) => {
+                console.log('[WS_UNSUBSCRIBE] Unsubscribing from conversation', { conversationId, timestamp: Date.now() });
+                wsClient.unsubscribe([conversationId]);
+            });
+        };
+    }, [conversationId]);
+
     // Scroll to bottom - instant on conversation change, smooth for new messages
     const prevConversationId = useRef(conversationId);
     const prevMessageCount = useRef(0);
@@ -98,32 +121,61 @@ export function ChatView({ conversationId }: Props) {
 
 
 
-    // Mark messages as read when viewing conversation
+    // Mark messages as read when viewing conversation AND window is focused
     useEffect(() => {
         if (!conversationMessages.length || !user) return;
+
+        // PHASE 4.1: Only emit read receipt if window is visible
+        if (document.visibilityState !== 'visible') {
+            console.log('[READ_RECEIPT] Skipped - window not visible', { visibilityState: document.visibilityState });
+            return;
+        }
 
         // Get the last message that's not from the current user
         const lastOtherMessage = [...conversationMessages]
             .reverse()
             .find(msg => msg.senderId !== user.id);
 
-        console.log('[MOBILE-DEBUG] markRead check', {
-            conversationId,
-            messageCount: conversationMessages.length,
-            lastOtherMessageId: lastOtherMessage?.id,
-            userId: user.id
-        });
-
         if (lastOtherMessage) {
             // Mark as read via WebSocket
             import('../../lib/ws').then(({ wsClient }) => {
-                console.log('[MOBILE-DEBUG] calling wsClient.markRead', { conversationId, messageId: lastOtherMessage.id });
+                console.log('[READ_RECEIPT] Emitting', {
+                    conversationId,
+                    messageId: lastOtherMessage.id,
+                    visibilityState: document.visibilityState,
+                    timestamp: Date.now()
+                });
                 wsClient.markRead(conversationId, lastOtherMessage.id);
             });
 
             // Clear unread count immediately (optimistic)
             useChatStore.getState().updateConversation(conversationId, { unreadCount: 0 });
         }
+    }, [conversationMessages, conversationId, user]);
+
+    // PHASE 4.1: Re-emit read receipt when window becomes visible
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible' && conversationMessages.length > 0 && user) {
+                const lastOtherMessage = [...conversationMessages]
+                    .reverse()
+                    .find(msg => msg.senderId !== user.id);
+
+                if (lastOtherMessage) {
+                    import('../../lib/ws').then(({ wsClient }) => {
+                        console.log('[READ_RECEIPT] Re-emitting on focus', {
+                            conversationId,
+                            messageId: lastOtherMessage.id,
+                            timestamp: Date.now()
+                        });
+                        wsClient.markRead(conversationId, lastOtherMessage.id);
+                    });
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
     }, [conversationMessages, conversationId, user]);
 
     // Auto-resize textarea
