@@ -107,6 +107,9 @@
     overflow-y: auto;
     overflow-x: hidden;
     padding: var(--space-4) var(--space-5);
+    -webkit-overflow-scrolling: touch;
+    /* Smooth scrolling on iOS */
+    overscroll-behavior: contain;
 }
 
 .chat-messages-empty {
