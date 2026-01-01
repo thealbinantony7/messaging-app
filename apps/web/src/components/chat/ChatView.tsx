@@ -80,6 +80,7 @@ export function ChatView({ conversationId }: Props) {
 
         // Instant scroll always for stability
         messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+        console.log('[ChatView] Scroll adjusted', { totalMessages });
 
         prevConversationId.current = conversationId;
         prevMessageCount.current = totalMessages;
