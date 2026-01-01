@@ -16,6 +16,10 @@ interface Props {
 export function ChatView({ conversationId }: Props) {
     const [message, setMessage] = useState('');
     const [showAiMenu, setShowAiMenu] = useState(false);
+    const [uploadingImage, setUploadingImage] = useState<{
+        preview: string;
+        progress: number;
+    } | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -311,6 +315,35 @@ export function ChatView({ conversationId }: Props) {
                                 isGrouped={false}
                             />
                         ))}
+                        {uploadingImage && (
+                            <div className="message-bubble own" style={{ position: 'relative' }}>
+                                <div className="message-content">
+                                    <div className="message-image" style={{ position: 'relative', maxWidth: '300px' }}>
+                                        <img
+                                            src={uploadingImage.preview}
+                                            alt="Uploading..."
+                                            style={{ width: '100%', display: 'block', borderRadius: '12px', opacity: 0.7 }}
+                                        />
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '50%',
+                                            left: '50%',
+                                            transform: 'translate(-50%, -50%)',
+                                            background: 'rgba(0,0,0,0.75)',
+                                            padding: '12px 20px',
+                                            borderRadius: '8px',
+                                            color: '#fff',
+                                            fontSize: '14px',
+                                            fontWeight: 500,
+                                            whiteSpace: 'nowrap',
+                                            backdropFilter: 'blur(4px)'
+                                        }}>
+                                            Uploading {uploadingImage.progress}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         <TypingIndicator conversationId={conversationId} />
                         <div ref={messagesEndRef} />
                     </div>
@@ -334,17 +367,27 @@ export function ChatView({ conversationId }: Props) {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
 
-                                try {
-                                    const { url } = await api.uploadImage(file);
+                                // Create local preview
+                                const preview = URL.createObjectURL(file);
+                                setUploadingImage({ preview, progress: 0 });
 
-                                    // Send image message
+                                try {
+                                    const { url } = await api.uploadImage(file, (percent) => {
+                                        setUploadingImage((prev) => prev ? { ...prev, progress: percent } : null);
+                                    });
+
+                                    // Upload complete → send message
                                     sendMessage(conversationId, url, 'image');
 
-                                    // Reset input
+                                    // Cleanup
+                                    URL.revokeObjectURL(preview);
+                                    setUploadingImage(null);
                                     e.target.value = '';
                                 } catch (error) {
                                     console.error('Image upload failed:', error);
-                                    alert('Failed to upload image. Please try again.');
+                                    addToast({ type: 'error', message: 'Failed to upload image. Please try again.' });
+                                    URL.revokeObjectURL(preview);
+                                    setUploadingImage(null);
                                     e.target.value = '';
                                 }
                             }}

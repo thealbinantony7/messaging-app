@@ -170,10 +170,40 @@ class ApiClient {
     }
 
     // Upload
-    async uploadImage(file: File) {
-        const formData = new FormData();
-        formData.append('file', file);
-        return this.request<{ url: string }>('POST', '/upload/image', formData, { isFormData: true });
+    async uploadImage(file: File, onProgress?: (percent: number) => void): Promise<{ url: string }> {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // Track upload progress
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable && onProgress) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    onProgress(percent);
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    try {
+                        resolve(JSON.parse(xhr.responseText));
+                    } catch (err) {
+                        reject(new Error('Invalid response from server'));
+                    }
+                } else {
+                    reject(new Error(`Upload failed: ${xhr.status}`));
+                }
+            };
+
+            xhr.onerror = () => reject(new Error('Network error'));
+
+            xhr.open('POST', `${API_BASE}/upload/image`);
+            if (this.accessToken) {
+                xhr.setRequestHeader('Authorization', `Bearer ${this.accessToken}`);
+            }
+            xhr.send(formData);
+        });
     }
 
     async getUploadUrl(filename: string, mimeType: string, sizeBytes: number) {
