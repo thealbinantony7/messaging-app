@@ -21,6 +21,7 @@ export interface User {
     avatarUrl: string | null;
     status: string | null;
     lastSeenAt: ISODateString | null;
+    isOnline?: boolean;  // PHASE 6.2: Backend-computed (NOW() - last_seen_at < 30s)
     createdAt: ISODateString;
 }
 

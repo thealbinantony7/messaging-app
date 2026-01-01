@@ -269,10 +269,12 @@ export function ChatView({ conversationId }: Props) {
             };
         }
         const other = conversation.members.find((m) => m.userId !== user?.id);
+        // PHASE 6.2: Use backend-computed isOnline, NOT client heuristics
+        const isOtherOnline = other?.user.isOnline ?? false;
         return {
             name: other?.user.displayName || 'Unknown',
             avatar: other?.user.avatarUrl,
-            status: other?.user.lastSeenAt ? 'Active recently' : 'Offline',
+            status: isOtherOnline ? 'Online' : 'Offline',
         };
     };
 

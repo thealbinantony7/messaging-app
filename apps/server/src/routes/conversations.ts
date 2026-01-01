@@ -71,7 +71,9 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
             const members = await query<any>(`
                 SELECT 
                     cm.id, cm.role, cm.joined_at as "joinedAt",
-                    u.id as "userId", u.email, u.display_name as "displayName", u.avatar_url as "avatarUrl"
+                    u.id as "userId", u.email, u.display_name as "displayName", u.avatar_url as "avatarUrl",
+                    u.status, u.last_seen_at as "lastSeenAt",
+                    (NOW() - COALESCE(u.last_seen_at, '1970-01-01'::timestamptz)) < INTERVAL '30 seconds' as "isOnline"
                 FROM conversation_members cm
                 JOIN users u ON cm.user_id = u.id
                 WHERE cm.conversation_id = $1
@@ -86,7 +88,10 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
                     id: m.userId,
                     email: m.email,
                     displayName: m.displayName,
-                    avatarUrl: m.avatarUrl
+                    avatarUrl: m.avatarUrl,
+                    status: m.status,
+                    lastSeenAt: m.lastSeenAt,
+                    isOnline: m.isOnline  // PHASE 6.2: Backend-computed presence
                 }
             }));
         }
