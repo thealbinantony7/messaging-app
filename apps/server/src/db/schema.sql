@@ -137,6 +137,19 @@ CREATE TABLE IF NOT EXISTS attachments (
 CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id);
 
 -- ============================================================================
+-- INVITE TOKENS
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS invite_tokens (
+    token           VARCHAR(64) PRIMARY KEY,
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    created_by      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_invite_tokens_conv ON invite_tokens(conversation_id);
+
+-- ============================================================================
 -- REFRESH TOKENS (for JWT rotation)
 -- ============================================================================
 
