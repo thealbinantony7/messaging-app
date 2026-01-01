@@ -79,8 +79,10 @@ export function ChatView({ conversationId }: Props) {
         const totalMessages = conversationMessages.length + pending.length;
 
         // Instant scroll on conversation change, smooth for new messages
-        messagesEndRef.current?.scrollIntoView({
-            behavior: isConversationChange ? 'instant' : 'smooth'
+        requestAnimationFrame(() => {
+            messagesEndRef.current?.scrollIntoView({
+                behavior: isConversationChange ? 'instant' : 'smooth'
+            });
         });
 
         prevConversationId.current = conversationId;
