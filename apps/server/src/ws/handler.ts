@@ -113,7 +113,8 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
             return;
         }
 
-        fastify.log.info({ userId }, 'WebSocket connected');
+        // Log: socket.connect
+        fastify.log.info({ event: 'socket.connect', userId, socketCount: (userSockets.get(userId)?.size || 0) + 1, timestamp: new Date().toISOString() }, 'WebSocket connected');
 
         // Track user socket for presence
         trackUserSocket(userId, socket);
@@ -157,6 +158,10 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
 
                     case 'send_message': {
                         const { id, conversationId, content, type, replyToId, attachmentIds } = message.payload;
+                        const sendStartTime = Date.now();
+
+                        // Log: msg.send.received
+                        fastify.log.info({ event: 'msg.send.received', messageId: id, conversationId, userId, type, timestamp: new Date().toISOString() }, 'Message send received');
 
                         // Verify user is member
                         const isMember = await queryOne<{ id: string }>(
@@ -183,6 +188,9 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                             );
 
                             const dbMessage = insertResult[0]!;
+
+                            // Log: msg.send.persisted
+                            fastify.log.info({ event: 'msg.send.persisted', messageId: id, conversationId, userId, latencyMs: Date.now() - sendStartTime, timestamp: new Date().toISOString() }, 'Message persisted to DB');
 
                             // Link attachments if provided
                             if (attachmentIds && attachmentIds.length > 0) {
@@ -235,6 +243,9 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                                 payload: fullMessage,
                             });
 
+                            // Log: msg.send.broadcast
+                            fastify.log.info({ event: 'msg.send.broadcast', messageId: id, conversationId, userId, timestamp: new Date().toISOString() }, 'Message broadcast via Redis');
+
                             // Send delivery receipts to sender (for DMs and groups, not channels)
                             // Get conversation type and other members
                             const convInfo = await queryOne<{ type: string }>('SELECT type FROM conversations WHERE id = $1', [conversationId]);
@@ -254,6 +265,9 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                                                 messageId: id,
                                             },
                                         });
+
+                                        // Log: msg.delivery.sent
+                                        fastify.log.info({ event: 'msg.delivery.sent', messageId: id, conversationId, recipientUserId: member.user_id, senderUserId: userId, timestamp: new Date().toISOString() }, 'Delivery receipt sent');
                                     }
                                 }
                             }
@@ -339,6 +353,10 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
 
                     case 'read': {
                         const { conversationId, messageId } = message.payload;
+                        const readStartTime = Date.now();
+
+                        // Log: msg.read.received
+                        fastify.log.info({ event: 'msg.read.received', messageId, conversationId, userId, timestamp: new Date().toISOString() }, 'Read event received');
 
                         // Update last read message
                         await query(
@@ -347,11 +365,17 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                             [messageId, conversationId, userId]
                         );
 
+                        // Log: msg.read.persisted
+                        fastify.log.info({ event: 'msg.read.persisted', messageId, conversationId, userId, latencyMs: Date.now() - readStartTime, timestamp: new Date().toISOString() }, 'Read state persisted to DB');
+
                         // Broadcast read receipt
                         await broadcastToConversation(conversationId, {
                             type: 'read_receipt',
                             payload: { conversationId, userId, messageId },
                         });
+
+                        // Log: msg.read.broadcast
+                        fastify.log.info({ event: 'msg.read.broadcast', messageId, conversationId, userId, timestamp: new Date().toISOString() }, 'Read receipt broadcast via Redis');
                         break;
                     }
 
@@ -403,7 +427,8 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
 
         // Handle disconnect
         socket.socket.on('close', async () => {
-            fastify.log.info({ userId }, 'WebSocket disconnected');
+            // Log: socket.disconnect
+            fastify.log.info({ event: 'socket.disconnect', userId, socketCount: userSockets.get(userId)?.size || 0, timestamp: new Date().toISOString() }, 'WebSocket disconnected');
 
             // Cleanup subscriptions
             for (const convId of userConversations) {
