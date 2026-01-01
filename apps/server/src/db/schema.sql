@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- USERS
 -- ============================================================================
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email           VARCHAR(255) UNIQUE NOT NULL,
     password_hash   VARCHAR(255) NOT NULL,
@@ -20,13 +20,13 @@ CREATE TABLE users (
     created_at      TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
-CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 -- ============================================================================
 -- CONVERSATIONS
 -- ============================================================================
 
-CREATE TABLE conversations (
+CREATE TABLE IF NOT EXISTS conversations (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     type        VARCHAR(10) NOT NULL CHECK (type IN ('dm', 'group')),
     name        VARCHAR(100),
@@ -35,13 +35,13 @@ CREATE TABLE conversations (
     updated_at  TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
-CREATE INDEX idx_conversations_updated ON conversations(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
 
 -- ============================================================================
 -- CONVERSATION MEMBERS
 -- ============================================================================
 
-CREATE TABLE conversation_members (
+CREATE TABLE IF NOT EXISTS conversation_members (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     conversation_id     UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     user_id             UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -53,14 +53,14 @@ CREATE TABLE conversation_members (
     UNIQUE(conversation_id, user_id)
 );
 
-CREATE INDEX idx_members_user ON conversation_members(user_id);
-CREATE INDEX idx_members_conv ON conversation_members(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_members_user ON conversation_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_members_conv ON conversation_members(conversation_id);
 
 -- ============================================================================
 -- MESSAGES
 -- ============================================================================
 
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     sender_id       UUID NOT NULL REFERENCES users(id),
@@ -72,19 +72,24 @@ CREATE TABLE messages (
     created_at      TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
-CREATE INDEX idx_messages_conv_created ON messages(conversation_id, created_at DESC);
-CREATE INDEX idx_messages_reply ON messages(reply_to_id) WHERE reply_to_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_messages_conv_created ON messages(conversation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_reply ON messages(reply_to_id) WHERE reply_to_id IS NOT NULL;
 
--- Add foreign key for last_read_msg_id after messages table exists
-ALTER TABLE conversation_members
-    ADD CONSTRAINT fk_last_read_msg
-    FOREIGN KEY (last_read_msg_id) REFERENCES messages(id) ON DELETE SET NULL;
+-- Add foreign key for last_read_msg_id safely
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_last_read_msg') THEN 
+        ALTER TABLE conversation_members 
+            ADD CONSTRAINT fk_last_read_msg 
+            FOREIGN KEY (last_read_msg_id) REFERENCES messages(id) ON DELETE SET NULL; 
+    END IF; 
+END $$;
 
 -- ============================================================================
 -- REACTIONS
 -- ============================================================================
 
-CREATE TABLE reactions (
+CREATE TABLE IF NOT EXISTS reactions (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     message_id  UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -94,13 +99,13 @@ CREATE TABLE reactions (
     UNIQUE(message_id, user_id)
 );
 
-CREATE INDEX idx_reactions_message ON reactions(message_id);
+CREATE INDEX IF NOT EXISTS idx_reactions_message ON reactions(message_id);
 
 -- ============================================================================
 -- ATTACHMENTS
 -- ============================================================================
 
-CREATE TABLE attachments (
+CREATE TABLE IF NOT EXISTS attachments (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     message_id  UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
     type        VARCHAR(10) NOT NULL CHECK (type IN ('image', 'video', 'voice')),
@@ -114,13 +119,13 @@ CREATE TABLE attachments (
     created_at  TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
-CREATE INDEX idx_attachments_message ON attachments(message_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id);
 
 -- ============================================================================
 -- REFRESH TOKENS (for JWT rotation)
 -- ============================================================================
 
-CREATE TABLE refresh_tokens (
+CREATE TABLE IF NOT EXISTS refresh_tokens (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash  VARCHAR(64) NOT NULL UNIQUE,
@@ -129,8 +134,8 @@ CREATE TABLE refresh_tokens (
     revoked_at  TIMESTAMPTZ
 );
 
-CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id);
-CREATE INDEX idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
 
 -- ============================================================================
 -- HELPER FUNCTIONS
@@ -146,6 +151,8 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_update_conversation_timestamp ON messages;
 
 CREATE TRIGGER trigger_update_conversation_timestamp
     AFTER INSERT ON messages

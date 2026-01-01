@@ -1,6 +1,6 @@
 import { memo, useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Check, CheckCheck, Clock, AlertCircle, Reply, RotateCw, Copy, Edit2, Trash2, X } from 'lucide-react';
+import { Check, CheckCheck, Clock, AlertCircle, Reply, Copy, Edit2, Trash2, X, MoreHorizontal } from 'lucide-react';
 import type { MessageWithDetails, MessageStatus } from '@linkup/shared';
 import { formatTime } from '../../lib/utils';
 import { api } from '../../lib/api';
@@ -277,7 +277,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
 
     return (
         <motion.div
-            className={`message-bubble relative max-w-[75%] md:max-w-[65%] px-4 py-2.5 shadow-none ${isOwn ? 'ml-auto bg-primary text-primary-foreground rounded-[1.25rem] rounded-tr-sm' : 'bg-secondary text-secondary-foreground rounded-[1.25rem] rounded-tl-sm'} ${isFailed ? 'opacity-50' : ''} ${isGrouped ? 'mt-0.5' : 'mt-4'}`}
+            className={`message-bubble group relative w-fit max-w-[75%] md:max-w-[65%] px-4 py-2.5 shadow-none ${isOwn ? 'ml-auto bg-primary text-primary-foreground rounded-[1.25rem] rounded-tr-sm' : 'bg-secondary text-secondary-foreground rounded-[1.25rem] rounded-tl-sm'} ${isFailed ? 'opacity-50' : ''} ${isGrouped ? 'mt-0.5' : 'mt-4'}`}
             // Removed animated transitions for a flat, instant feel
             layout={false}
             style={{ zIndex: showMenu ? 10 : 'auto', position: 'relative', pointerEvents: 'auto' }}
@@ -289,6 +289,18 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
             onTouchEnd={handleTouchEnd}
             onTouchMove={handleTouchMove}
         >
+            {/* Desktop Action Menu Trigger */}
+            <button
+                className={`absolute bottom-1 right-1 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ${isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground' : 'bg-black/5 hover:bg-black/10 text-foreground'} md:block hidden`}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMenu(true);
+                }}
+                aria-label="Message options"
+            >
+                <MoreHorizontal size={14} />
+            </button>
+
             {showMenu && (
                 <div ref={menuRef} className="message-context-menu" style={{
                     position: 'absolute',

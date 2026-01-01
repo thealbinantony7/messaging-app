@@ -1,0 +1,12 @@
+{
+    "buildCommand": "cd ../.. && npm install && npm run build -w @linkup/web",
+    "outputDirectory": "dist",
+    "installCommand": "npm install",
+    "framework": null,
+    "rewrites": [
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
+        }
+    ]
+}

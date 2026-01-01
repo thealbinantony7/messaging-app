@@ -18,12 +18,10 @@ const envSchema = z.object({
     JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
     JWT_REFRESH_EXPIRES_IN: z.string().default('30d'),
 
-    // S3
-    S3_ENDPOINT: z.string().url(),
-    S3_BUCKET: z.string(),
-    S3_ACCESS_KEY: z.string(),
-    S3_SECRET_KEY: z.string(),
-    S3_REGION: z.string().default('us-east-1'),
+    // Supabase Storage
+    SUPABASE_URL: z.string().url(),
+    SUPABASE_SERVICE_KEY: z.string().min(1),
+    STORAGE_BUCKET: z.string().min(1),
 
     // AI
     OPENAI_API_KEY: z.string().optional(),
