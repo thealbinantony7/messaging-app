@@ -277,7 +277,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
 
     return (
         <motion.div
-            className={`message-bubble ${isOwn ? 'own' : 'other'} ${isFailed ? 'failed' : ''} ${isGrouped ? 'grouped' : ''}`}
+            className={`message-bubble ${isOwn ? 'own !bg-blue-600 !text-white !rounded-2xl !rounded-tr-sm' : 'other !bg-zinc-800 !text-zinc-100 !rounded-2xl !rounded-tl-sm'} ${isFailed ? 'failed' : ''} ${isGrouped ? '!mt-0.5' : '!mt-3'} !shadow-sm !px-4 !py-2.5 max-w-[75%] md:max-w-[60%]`}
             initial={{ opacity: 0, y: 10, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: 'spring', stiffness: 300, damping: 25 }}
@@ -366,7 +366,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
 
             {/* Reply preview */}
             {message.replyTo && (
-                <div className="message-reply-preview">
+                <div className="message-reply-preview !bg-black/10 !rounded-lg !mb-2">
                     <Reply size={12} />
                     <span className="truncate">
                         {message.replyTo.content || '[Attachment]'}
@@ -375,12 +375,12 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
             )}
 
             {/* Content */}
-            <div className={`message-content ${isDeleted ? 'deleted' : ''}`}>
+            <div className={`message-content ${isDeleted ? 'deleted' : ''} !text-[15px] !leading-relaxed`}>
                 {renderContent()}
             </div>
 
             {/* Footer */}
-            <div className="message-footer">
+            <div className="message-footer !mt-1 !text-[11px] !opacity-60">
                 {message.editedAt && !isDeleted && <span className="message-edited">edited</span>}
                 <span className="message-time">{formatTime(message.createdAt)}</span>
                 {renderStatus()}
@@ -414,7 +414,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                 if (!hasReactions) return null;
 
                 return (
-                    <div className="message-reactions">
+                    <div className="message-reactions !mt-2">
                         {Object.entries(groupedReactions).map(([emoji, reacts]) => {
                             const hasReacted = user && reacts.some(r => r.userId === user.id);
                             return (

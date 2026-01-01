@@ -239,34 +239,34 @@ export function ChatView({ conversationId }: Props) {
     return (
         <div className="chat-view">
             {/* Header */}
-            <header className="chat-header glass">
-                <div className="chat-header-left">
+            <header className="chat-header glass !h-[72px] !px-6 !border-b !border-white/5 backdrop-blur-md bg-black/40">
+                <div className="chat-header-left gap-4">
                     {isMobile && (
                         <button
-                            className="chat-header-back"
+                            className="chat-header-back hover:bg-white/5 rounded-full w-10 h-10"
                             onClick={() => setActiveConversation(null)}
                             aria-label="Back to conversations"
                         >
                             <ArrowLeft size={20} />
                         </button>
                     )}
-                    <div className="chat-header-avatar">
+                    <div className="chat-header-avatar !w-10 !h-10 shadow-sm ring-1 ring-white/10">
                         {displayInfo.avatar ? (
                             <img src={displayInfo.avatar} alt={displayInfo.name} />
                         ) : (
-                            <div className="chat-header-avatar-fallback">
+                            <div className="chat-header-avatar-fallback !bg-zinc-800 !text-zinc-400">
                                 {displayInfo.name.charAt(0).toUpperCase()}
                             </div>
                         )}
                     </div>
                     <div className="chat-header-info">
-                        <h2 className="chat-header-name">{displayInfo.name}</h2>
-                        <span className="chat-header-status">{displayInfo.status}</span>
+                        <h2 className="chat-header-name !text-[16px] !font-medium text-zinc-100">{displayInfo.name}</h2>
+                        <span className="chat-header-status !text-[13px] text-zinc-500 font-normal">{displayInfo.status}</span>
                     </div>
                 </div>
-                <div className="chat-header-actions">
+                <div className="chat-header-actions gap-2">
                     <button
-                        className="chat-header-btn"
+                        className="chat-header-btn hover:bg-white/5 !rounded-lg !w-10 !h-10 text-zinc-400 hover:text-white transition-colors"
                         aria-label="Copy invite link"
                         onClick={async () => {
                             try {
@@ -280,17 +280,17 @@ export function ChatView({ conversationId }: Props) {
                     >
                         <Link size={20} />
                     </button>
-                    <button className="chat-header-btn" aria-label="Search">
+                    <button className="chat-header-btn hover:bg-white/5 !rounded-lg !w-10 !h-10 text-zinc-400 hover:text-white transition-colors" aria-label="Search">
                         <Search size={20} />
                     </button>
-                    <button className="chat-header-btn" aria-label="More options">
+                    <button className="chat-header-btn hover:bg-white/5 !rounded-lg !w-10 !h-10 text-zinc-400 hover:text-white transition-colors" aria-label="More options">
                         <MoreVertical size={20} />
                     </button>
                 </div>
             </header>
 
             {/* Messages */}
-            <div className="chat-messages">
+            <div className="chat-messages bg-transparent">
                 {isLoading ? (
                     <div className="chat-messages-loading">
                         {Array.from({ length: 3 }).map((_, i) => (
@@ -301,10 +301,10 @@ export function ChatView({ conversationId }: Props) {
                     </div>
                 ) : conversationMessages.length === 0 && pending.length === 0 ? (
                     <div className="chat-messages-empty">
-                        <p>No messages yet. Say hello! 👋</p>
+                        <p className="text-zinc-500 text-sm">No messages yet. Say hello! 👋</p>
                     </div>
                 ) : (
-                    <div className="chat-messages-list">
+                    <div className="chat-messages-list !gap-1 px-4 py-6">
                         {conversationMessages.map((msg, index) => {
                             const prevMsg = index > 0 ? conversationMessages[index - 1] : null;
                             const isGrouped = !!(prevMsg && prevMsg.senderId === msg.senderId &&
@@ -366,7 +366,7 @@ export function ChatView({ conversationId }: Props) {
             </div>
 
             {/* Input */}
-            <div className="chat-input glass">
+            <div className="chat-input glass !border-t !border-white/5 bg-black/40 backdrop-blur-xl pb-6 pt-4 px-6">
                 {!canSendMessages ? (
                     <div className="chat-input-readonly">
                         <p>Only admins can send messages in this channel</p>
@@ -408,7 +408,7 @@ export function ChatView({ conversationId }: Props) {
                             }}
                         />
                         <button
-                            className="chat-input-btn"
+                            className="chat-input-btn hover:bg-white/5 rounded-full w-10 h-10 text-zinc-400 hover:text-white transition-colors"
                             aria-label="Send image"
                             onClick={() => document.getElementById('image-upload')?.click()}
                         >
@@ -418,7 +418,7 @@ export function ChatView({ conversationId }: Props) {
                         <div className="chat-input-wrapper">
                             <textarea
                                 ref={inputRef}
-                                className="chat-input-field"
+                                className="chat-input-field !bg-zinc-800/40 !border-white/5 focus:!border-white/10 !rounded-2xl !text-[15px] !text-zinc-100 placeholder:text-zinc-500 !px-4 !py-3"
                                 placeholder="Type a message..."
                                 value={message}
                                 onChange={handleInputChange}
@@ -430,7 +430,7 @@ export function ChatView({ conversationId }: Props) {
                             {message.trim() && (
                                 <div className="chat-input-ai">
                                     <button
-                                        className="chat-input-ai-btn"
+                                        className="chat-input-ai-btn !rounded-lg shadow-sm"
                                         onClick={() => setShowAiMenu(!showAiMenu)}
                                         aria-label="AI rewrite"
                                     >
@@ -465,20 +465,20 @@ export function ChatView({ conversationId }: Props) {
                             )}
                         </div>
 
-                        <button className="chat-input-btn" aria-label="Emoji">
+                        <button className="chat-input-btn hover:bg-white/5 rounded-full w-10 h-10 text-zinc-400 hover:text-white transition-colors" aria-label="Emoji">
                             <Smile size={20} />
                         </button>
 
                         {message.trim() ? (
                             <button
-                                className="chat-input-send"
+                                className="chat-input-send !rounded-full !bg-blue-600 shadow-md shadow-blue-900/20"
                                 onClick={handleSend}
                                 aria-label="Send message"
                             >
                                 <Send size={18} />
                             </button>
                         ) : (
-                            <button className="chat-input-btn" aria-label="Voice message">
+                            <button className="chat-input-btn hover:bg-white/5 rounded-full w-10 h-10 text-zinc-400 hover:text-white transition-colors" aria-label="Voice message">
                                 <Mic size={20} />
                             </button>
                         )}

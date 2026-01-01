@@ -37,42 +37,42 @@ export const ConversationItem = memo(function ConversationItem({ conversation }:
 
     return (
         <motion.button
-            className={`conversation-item ${isActive ? 'active' : ''} ${hasUnread ? 'unread' : ''}`}
+            className={`conversation-item ${isActive ? 'active !bg-white/10' : ''} ${hasUnread ? 'unread' : ''} !rounded-xl !mx-2 !my-0.5 !py-3 !px-3 hover:!bg-white/5 transition-colors duration-200`}
             onClick={() => setActiveConversation(conversation.id)}
-            whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.03)' }}
+            whileHover={{ scale: 1.01 }}
             whileTap={{ scale: 0.99 }}
         >
             {/* Avatar */}
-            <div className="conversation-avatar">
+            <div className="conversation-avatar !w-12 !h-12 border border-white/5 shadow-sm">
                 {avatar ? (
                     <img src={avatar} alt={name} />
                 ) : (
-                    <div className="conversation-avatar-fallback">
+                    <div className="conversation-avatar-fallback !bg-zinc-800 !text-zinc-400">
                         {name.charAt(0).toUpperCase()}
                     </div>
                 )}
                 {conversation.type === 'group' && (
-                    <span className="conversation-group-badge">
+                    <span className="conversation-group-badge border border-[#1a1a1a]">
                         {conversation.members.length}
                     </span>
                 )}
             </div>
 
             {/* Content */}
-            <div className="conversation-content">
-                <div className="conversation-header">
-                    <span className="conversation-name truncate">{name}</span>
+            <div className="conversation-content ml-3 border-b border-white/5 pb-3">
+                <div className="conversation-header mb-0.5">
+                    <span className="conversation-name truncate !text-[15px] !font-medium !text-zinc-100">{name}</span>
                     {lastMessage && (
-                        <span className="conversation-time">
+                        <span className="conversation-time !text-[12px] !font-normal !text-zinc-500">
                             {formatDistanceToNow(lastMessage.createdAt)}
                         </span>
                     )}
                 </div>
                 <div className="conversation-preview">
                     {lastMessage ? (
-                        <span className="truncate">
+                        <span className="truncate !text-[14px] !text-zinc-400 font-normal">
                             {lastMessage.senderId === user?.id && (
-                                <span className="conversation-you">You: </span>
+                                <span className="conversation-you !text-zinc-500">You: </span>
                             )}
                             {lastMessage.deletedAt
                                 ? 'Message deleted'
@@ -82,10 +82,10 @@ export const ConversationItem = memo(function ConversationItem({ conversation }:
                                             : lastMessage.content || `[${lastMessage.type}]`}
                         </span>
                     ) : (
-                        <span className="conversation-empty">No messages yet</span>
+                        <span className="conversation-empty !text-[14px]">No messages yet</span>
                     )}
                     {hasUnread && (
-                        <span className="conversation-badge">{conversation.unreadCount}</span>
+                        <span className="conversation-badge !bg-blue-600 !h-5 !min-w-[20px] !text-[11px] shadow-sm shadow-blue-900/20">{conversation.unreadCount}</span>
                     )}
                 </div>
             </div>
