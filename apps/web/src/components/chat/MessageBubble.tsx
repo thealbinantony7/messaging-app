@@ -20,6 +20,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
     const [showMenu, setShowMenu] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editContent, setEditContent] = useState(message.content || '');
+    const [showLightbox, setShowLightbox] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const isDeleted = !!message.deletedAt;
 
@@ -66,27 +67,33 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
     };
 
     const handleDelete = async (e?: React.MouseEvent) => {
-        console.log('[MOBILE-DEBUG] handleDelete called', { messageId: message.id, timestamp: Date.now() });
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
 
-        console.log('[Delete] requested for:', message.id);
+        if (!window.confirm('Delete this message?')) return;
 
-        if (!window.confirm('Delete this message?')) {
-            console.log('[Delete] cancelled by user');
-            return;
-        }
+        // Optimistic: mark as deleted immediately
+        useChatStore.getState().updateMessage(
+            message.conversationId,
+            message.id,
+            { deletedAt: new Date().toISOString() }
+        );
+        setShowMenu(false);
 
+        // Background: confirm with server
         try {
-            console.log('[Delete] calling API...');
             await api.deleteMessage(message.id);
-            console.log('[Delete] API success');
         } catch (err) {
             console.error('[Delete] failed', err);
+            // Revert on failure
+            useChatStore.getState().updateMessage(
+                message.conversationId,
+                message.id,
+                { deletedAt: null }
+            );
         }
-        setShowMenu(false);
     };
 
     const handleEdit = async () => {
@@ -140,9 +147,45 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                 // Image URL can be in attachments[0].url OR directly in message.content
                 const imageUrl = message.attachments[0]?.url || message.attachments[0]?.thumbnail || message.content;
                 return imageUrl ? (
-                    <div className="message-image">
-                        <img src={imageUrl} alt="Shared image" loading="lazy" />
-                    </div>
+                    <>
+                        <div
+                            className="message-image"
+                            onClick={() => setShowLightbox(true)}
+                            style={{ cursor: 'pointer' }}
+                        >
+                            <img src={imageUrl} alt="Shared image" loading="lazy" />
+                        </div>
+                        {showLightbox && (
+                            <div
+                                onClick={() => setShowLightbox(false)}
+                                style={{
+                                    position: 'fixed',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    background: 'rgba(0,0,0,0.9)',
+                                    zIndex: 9999,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '20px'
+                                }}
+                            >
+                                <img
+                                    src={imageUrl}
+                                    alt="Full size"
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                        maxWidth: '90%',
+                                        maxHeight: '90%',
+                                        objectFit: 'contain',
+                                        borderRadius: '8px'
+                                    }}
+                                />
+                            </div>
+                        )}
+                    </>
                 ) : null;
             case 'video':
                 const video = message.attachments[0];

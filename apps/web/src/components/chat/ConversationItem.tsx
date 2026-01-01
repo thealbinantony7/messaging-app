@@ -76,7 +76,10 @@ export const ConversationItem = memo(function ConversationItem({ conversation }:
                             )}
                             {lastMessage.deletedAt
                                 ? 'Message deleted'
-                                : lastMessage.content || `[${lastMessage.type}]`}
+                                : lastMessage.type === 'image' ? '📷 Photo'
+                                    : lastMessage.type === 'video' ? '🎥 Video'
+                                        : lastMessage.type === 'voice' ? '🎤 Voice message'
+                                            : lastMessage.content || `[${lastMessage.type}]`}
                         </span>
                     ) : (
                         <span className="conversation-empty">No messages yet</span>
