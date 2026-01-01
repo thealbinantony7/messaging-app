@@ -176,6 +176,7 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                                     src={imageUrl}
                                     alt="Full size"
                                     onClick={(e) => e.stopPropagation()}
+                                    onContextMenu={(e) => e.stopPropagation()}
                                     style={{
                                         maxWidth: '90%',
                                         maxHeight: '90%',
