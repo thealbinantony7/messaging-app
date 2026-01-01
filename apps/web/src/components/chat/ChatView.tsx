@@ -55,18 +55,23 @@ export function ChatView({ conversationId }: Props) {
         return () => clearInterval(checkConnection);
     }, []);
 
-    // PHASE 4.1: Compute delivery/seen status using messageStatus map
+    // PHASE 4.2: Compute delivery/seen status - messageStatus is single source of truth
     const getMessageStatus = (messageId: string): 'sent' | 'delivered' | 'read' => {
         // Skip channels - no delivery receipts for channels
         if (conversation?.type === 'channel') return 'sent';
 
-        // PHASE 4.1: Use authoritative messageStatus map from Phase 4
+        // PHASE 4.2: INVARIANT - messageStatus is authoritative, terminal states never downgrade
+        // If messageStatus exists for this message, return it immediately (no fallback)
         const status = messageStatus[messageId];
-        if (status === 'delivered') return 'delivered';
-        if (status === 'read') return 'read';
+        if (status) {
+            // Terminal states: delivered and read are final
+            if (status === 'delivered' || status === 'read') return status;
+            // Non-terminal states: sent, pending, failed
+            if (status === 'sent') return 'sent';
+        }
 
-        // Fallback to old logic for backward compatibility
-        // Check if seen (read)
+        // Fallback to legacy receipts ONLY if messageStatus is undefined
+        // This handles messages from before Phase 4 or edge cases
         const seenSet = seenReceipts[messageId];
         if (seenSet && seenSet.size > 0) {
             const otherMembers = conversation?.members.filter(m => m.userId !== user?.id) || [];
@@ -74,14 +79,14 @@ export function ChatView({ conversationId }: Props) {
             if (hasSeen) return 'read';
         }
 
-        // Check if delivered
         const receipts = deliveryReceipts[messageId];
-        if (!receipts || receipts.size === 0) return 'sent';
+        if (receipts && receipts.size > 0) {
+            const otherMembers = conversation?.members.filter(m => m.userId !== user?.id) || [];
+            const hasDelivery = otherMembers.some(m => receipts.has(m.userId));
+            if (hasDelivery) return 'delivered';
+        }
 
-        // If at least one other user has received it, mark as delivered
-        const otherMembers = conversation?.members.filter(m => m.userId !== user?.id) || [];
-        const hasDelivery = otherMembers.some(m => receipts.has(m.userId));
-        return hasDelivery ? 'delivered' : 'sent';
+        return 'sent';
     };
 
     // Fetch messages on mount or id change
