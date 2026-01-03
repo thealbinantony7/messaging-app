@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+/* Deployment update: 2026-01-03 21:26 */
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/auth';
 import { useUIStore } from './stores/ui';
