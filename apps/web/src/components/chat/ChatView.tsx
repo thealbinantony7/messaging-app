@@ -79,10 +79,18 @@ export function ChatView({ conversationId }: Props) {
 
     // Auto-scroll to bottom when messages load or change
     useEffect(() => {
-        // Scroll to bottom when conversation changes or new messages arrive
-        if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
+        // Use setTimeout to ensure DOM has rendered
+        const scrollToBottom = () => {
+            if (messagesEndRef.current) {
+                // Use instant scroll (no smooth) to ensure it reaches bottom
+                messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+            }
+        };
+
+        // Small delay to ensure messages are rendered
+        const timeoutId = setTimeout(scrollToBottom, 100);
+
+        return () => clearTimeout(timeoutId);
     }, [conversationId, conversationMessages.length]);
 
     // PHASE 8.1: Load draft on conversation change
