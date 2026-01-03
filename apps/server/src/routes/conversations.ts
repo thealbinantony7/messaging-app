@@ -67,11 +67,15 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
             JOIN conversation_members cm ON cm.conversation_id = c.id
             LEFT JOIN conversation_pins cp ON cp.conversation_id = c.id AND cp.user_id = $1
             WHERE cm.user_id = $1
-            -- PHASE 8.3: Order pinned first (DESC pinnedAt), then unpinned (DESC lastMessage.createdAt)
+            -- PHASE 8.3: Order pinned first (DESC pinnedAt), then by activity (Message or UpdatedAt)
             ORDER BY 
                 CASE WHEN cp.pinned_at IS NOT NULL THEN 0 ELSE 1 END,
                 cp.pinned_at DESC NULLS LAST,
-                (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) DESC NULLS LAST
+                -- Fallback to updated_at if no messages (e.g. new group)
+                COALESCE(
+                    (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1),
+                    c.updated_at
+                ) DESC NULLS LAST
         `, [payload.id]);
 
         // Fetch members for each conversation

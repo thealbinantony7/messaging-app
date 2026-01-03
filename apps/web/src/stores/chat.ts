@@ -11,6 +11,7 @@ interface ChatState {
     // Conversations
     conversations: ConversationWithMembers[];
     conversationsLoading: boolean;
+    conversationsError: string | null;
     setConversations: (conversations: ConversationWithMembers[]) => void;
     addConversation: (conversation: ConversationWithMembers) => void;
     updateConversation: (id: string, updates: Partial<ConversationWithMembers>) => void;
@@ -75,7 +76,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     // Conversations
     conversations: [],
     conversationsLoading: true,
-    setConversations: (conversations) => set({ conversations, conversationsLoading: false }),
+    conversationsError: null,
+    setConversations: (conversations) => set({ conversations, conversationsLoading: false, conversationsError: null }),
     addConversation: (conversation) => set((state) => ({
         conversations: [conversation, ...state.conversations],
     })),
@@ -293,8 +295,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // Actions
     fetchConversations: async () => {
-        const { conversationsLoading } = get();
-        if (conversationsLoading === false) return; // Already loaded
+        // PERMIT RE-FETCHING: Do not return early if loading=false
+        // logic: strict backend source of truth means we must query if asked.
 
         try {
             const { api } = await import('../lib/api');
@@ -302,7 +304,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             set({ conversations: response.conversations, conversationsLoading: false });
         } catch (error) {
             console.error('Failed to fetch conversations', error);
-            set({ conversationsLoading: false });
+            // Even on error, ensure loading is false so UI doesn't hang
+            set({ conversationsLoading: false, conversationsError: 'Failed to load conversations' });
         }
     },
 

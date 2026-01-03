@@ -12,7 +12,7 @@ export function Sidebar() {
     const [searchQuery, setSearchQuery] = useState('');
     const { user } = useAuthStore();
     const { openModal } = useUIStore();
-    const { conversations, conversationsLoading, fetchConversations } = useChatStore();
+    const { conversations, conversationsLoading, conversationsError, fetchConversations } = useChatStore();
 
     // Fetch conversations on mount
     useEffect(() => {
@@ -96,7 +96,18 @@ export function Sidebar() {
                 {/* Chats Section */}
                 <div className="sidebar-label">Chats</div>
 
-                {conversationsLoading ? (
+                {conversationsError ? (
+                    <div className="sidebar-empty">
+                        <div className="text-destructive mb-2" style={{ fontSize: '1.5rem' }}>⚠️</div>
+                        <p className="text-sm text-destructive">{conversationsError}</p>
+                        <button
+                            className="sidebar-empty-btn mt-4"
+                            onClick={() => fetchConversations()}
+                        >
+                            Retry
+                        </button>
+                    </div>
+                ) : conversationsLoading ? (
                     // Loading skeletons
                     Array.from({ length: 5 }).map((_, i) => (
                         <div key={i} className="conversation-skeleton">
