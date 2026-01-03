@@ -10,6 +10,7 @@ import { wsClient } from '../../lib/ws';
 import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
 import { SearchModal } from './SearchModal'; // PHASE 7.2
+import { MediaViewer } from './MediaViewer'; // PHASE 7.3
 import './ChatView.css';
 
 interface Props {
@@ -21,6 +22,7 @@ export function ChatView({ conversationId }: Props) {
     const [showAiMenu, setShowAiMenu] = useState(false);
     const [showSearch, setShowSearch] = useState(false); // PHASE 7.2
     const [editingMessageId, setEditingMessageId] = useState<string | null>(null); // PHASE 7.5
+    const [mediaViewer, setMediaViewer] = useState<{ items: Array<{ id: string; url: string; createdAt: string }>; index: number } | null>(null); // PHASE 7.3
     const [uploadingImage, setUploadingImage] = useState<{
         preview: string;
         progress: number;
@@ -628,6 +630,15 @@ export function ChatView({ conversationId }: Props) {
                         // Scroll to message (simple implementation)
                         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
                     }}
+                />
+            )}
+
+            {/* PHASE 7.3: Media Viewer */}
+            {mediaViewer && (
+                <MediaViewer
+                    items={mediaViewer.items}
+                    initialIndex={mediaViewer.index}
+                    onClose={() => setMediaViewer(null)}
                 />
             )}
         </div>
