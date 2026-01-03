@@ -11,6 +11,7 @@ import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
 import { SearchModal } from './SearchModal'; // PHASE 7.2
 import { MediaViewer } from './MediaViewer'; // PHASE 7.3
+import { draftStorage } from '../../lib/draftStorage'; // PHASE 8.1
 import './ChatView.css';
 
 interface Props {
@@ -75,6 +76,14 @@ export function ChatView({ conversationId }: Props) {
     useEffect(() => {
         fetchMessages(conversationId);
     }, [conversationId, fetchMessages]);
+
+    // PHASE 8.1: Load draft on conversation change
+    useEffect(() => {
+        const draft = draftStorage.loadDraft(conversationId);
+        if (draft && !editingMessageId) {
+            setMessage(draft);
+        }
+    }, [conversationId, editingMessageId]);
 
     // PHASE 4.1: Subscribe to conversation on mount
     useEffect(() => {
@@ -288,6 +297,8 @@ export function ChatView({ conversationId }: Props) {
 
         setMessage('');
         setShowAiMenu(false);
+        // PHASE 8.1: Clear draft on successful send
+        draftStorage.clearDraft(conversationId);
         // Reset height
         if (inputRef.current) inputRef.current.style.height = 'auto';
     };
@@ -300,8 +311,11 @@ export function ChatView({ conversationId }: Props) {
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        setMessage(e.target.value);
+        const newValue = e.target.value;
+        setMessage(newValue);
         handleTyping();
+        // PHASE 8.1: Save draft (silent, instant)
+        draftStorage.saveDraft(conversationId, newValue);
     };
 
     const handleRetry = (messageId: string) => {
