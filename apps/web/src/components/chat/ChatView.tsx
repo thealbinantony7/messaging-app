@@ -45,10 +45,31 @@ export function ChatView({ conversationId }: Props) {
     const isLoading = useChatStore((state) => state.messagesLoading[conversationId]);
     const conversation = useChatStore((state) => state.conversations.find((c) => c.id === conversationId));
 
+    // PHASE 9.2: Cap rendered messages for performance (last 300)
+    const renderedMessages = useMemo(() => {
+        const allMessages = [...conversationMessages];
+        // Keep last 300 messages to prevent DOM blowup
+        if (allMessages.length > 300) {
+            return allMessages.slice(-300);
+        }
+        return allMessages;
+    }, [conversationMessages]);
+
     // Get actions (these are stable references)
     const fetchMessages = useChatStore((state) => state.fetchMessages);
     const sendMessage = useChatStore((state) => state.sendMessage);
     const retryMessage = useChatStore((state) => state.retryMessage);
+
+    // PHASE 9.1: Guard against missing conversation
+    if (!conversation && !isLoading) {
+        return (
+            <div className="chat-view flex items-center justify-center h-full">
+                <div className="text-center">
+                    <p className="text-muted-foreground">Conversation not found</p>
+                </div>
+            </div>
+        );
+    }
 
     // Offline detection
     const [isOnline, setIsOnline] = useState(wsClient.isConnected);
