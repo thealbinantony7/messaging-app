@@ -268,6 +268,10 @@ class ApiClient {
     async getInviteLink(conversationId: string) {
         return this.request<import('@linkup/shared').CreateInviteLinkResponse>('GET', `/invite/${conversationId}`);
     }
+
+    async markConversationAsRead(conversationId: string) {
+        return this.request<{ success: boolean }>('POST', `/conversations/${conversationId}/read`);
+    }
 }
 
 export const api = new ApiClient();

@@ -214,4 +214,43 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
 
         return { conversationId };
     });
+
+    // Mark conversation as read
+    fastify.post<{ Params: { id: string } }>('/:id/read', async (request, reply) => {
+        const { id: conversationId } = request.params;
+        const userId = (request.user as JwtPayload).id;
+
+        try {
+            // Verify user is member
+            const membership = await queryOne(
+                'SELECT id FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
+                [conversationId, userId]
+            );
+
+            if (!membership) {
+                return reply.code(403).send({ error: 'Forbidden' });
+            }
+
+            // Get last message in conversation
+            const lastMessage = await queryOne<{ id: string }>(
+                'SELECT id FROM messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 1',
+                [conversationId]
+            );
+
+            if (lastMessage) {
+                // Update last_read_msg_id
+                await query(
+                    `UPDATE conversation_members 
+                     SET last_read_msg_id = $1 
+                     WHERE conversation_id = $2 AND user_id = $3`,
+                    [lastMessage.id, conversationId, userId]
+                );
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to mark conversation as read:', error);
+            return reply.code(500).send({ error: 'Failed to mark as read' });
+        }
+    });
 };

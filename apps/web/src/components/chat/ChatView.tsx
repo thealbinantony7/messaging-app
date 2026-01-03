@@ -93,6 +93,15 @@ export function ChatView({ conversationId }: Props) {
         return () => clearTimeout(timeoutId);
     }, [conversationId, conversationMessages.length]);
 
+    // Mark conversation as read when opening
+    useEffect(() => {
+        if (conversationId) {
+            api.markConversationAsRead(conversationId).catch(err => {
+                console.error('Failed to mark conversation as read:', err);
+            });
+        }
+    }, [conversationId]);
+
     // PHASE 8.1: Load draft on conversation change
     useEffect(() => {
         const draft = draftStorage.loadDraft(conversationId);
