@@ -60,7 +60,7 @@ export function ChatView({ conversationId }: Props) {
         return () => clearInterval(checkConnection);
     }, []);
 
-    // PHASE 8.6: WhatsApp-style group read receipts
+    // PHASE 8.6-8.8: WhatsApp-style group read receipts & delivery visibility
     const getMessageStatus = (message: MessageWithDetails): 'sent' | 'delivered' | 'read' => {
         // Skip channels - no delivery receipts for channels
         if (conversation?.type === 'channel') return 'sent';
@@ -72,7 +72,8 @@ export function ChatView({ conversationId }: Props) {
             return 'sent';
         }
 
-        // For group chats, check if ALL active members have read
+        // PHASE 8.8: For group chats, WhatsApp-style delivery & read visibility
+        // ✓ = sent, ✓✓ grey = delivered (any/all), ✓✓ blue = read by ALL
         if (conversation?.type === 'group') {
             // If message not delivered yet
             if (!message.deliveredAt) return 'sent';
