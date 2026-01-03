@@ -77,6 +77,14 @@ export function ChatView({ conversationId }: Props) {
         fetchMessages(conversationId);
     }, [conversationId, fetchMessages]);
 
+    // Auto-scroll to bottom when messages load or change
+    useEffect(() => {
+        // Scroll to bottom when conversation changes or new messages arrive
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [conversationId, conversationMessages.length]);
+
     // PHASE 8.1: Load draft on conversation change
     useEffect(() => {
         const draft = draftStorage.loadDraft(conversationId);
