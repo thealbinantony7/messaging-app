@@ -1,9 +1,38 @@
 # 🚀 LUCENT Deployment Log
 
 **Date**: January 3, 2026
-**Commit**: `HEAD` (Phase 6.3)
+**Commit**: `HEAD` (Phase 6.4)
+
+## 📦 Release Notes (v1.3.0 - "Invite Link Authority")
+
+### Critical Fix
+- **Production-Safe Invite Links**: Invite URLs now use `APP_BASE_URL` environment variable with **mandatory validation**. Server refuses to start if missing or invalid.
+- **Zero Localhost Leakage**: Removed all fallbacks to `localhost:5173`. Production deployments are now guaranteed to use the correct domain.
+
+### Backend Hardening
+- **Startup Validation**: Added `validateEnvironment()` function that validates `APP_BASE_URL`, `DATABASE_URL`, `REDIS_URL`, and `JWT_ACCESS_SECRET` before server starts.
+- **Format Validation**: `APP_BASE_URL` must start with `http://` or `https://`, preventing misconfiguration.
+
+### Developer Experience
+- **Clear Error Messages**: Server crashes with explicit error messages listing missing environment variables.
+- **Documentation**: Updated `DEPLOY_GUIDE.md` with `APP_BASE_URL` requirement.
+
+## 🛠️ Infrastructure
+- **Database**: PostgreSQL 15+ (Hardened constraints)
+- **Frontend**: React + Vite (Build Verified: PASS)
+- **Backend**: Fastify + WebSockets (Environment Validated)
+
+## ✅ Verification
+- Build Status: **PASS**
+- TypeScript Check: **PASS**
+- Startup Validation: **ENFORCED**
+
+---
 
 ## 📦 Release Notes (v1.2.0 - "Read Semantics Finalization")
+**Date**: January 3, 2026
+**Commit**: `352a4a3` (Phase 6.3)
+
 
 ### Critical Improvements
 - **Deterministic Read Receipts**: Finalized backend-authoritative read logic. Red ticks (read) now derive strictly from `read_at` field.

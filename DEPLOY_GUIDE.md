@@ -51,6 +51,9 @@
 
 ### Backend (.env):
 ```bash
+# REQUIRED: Application base URL (no trailing slash)
+APP_BASE_URL=https://your-backend-domain.onrender.com
+
 PORT=3001
 NODE_ENV=production
 DATABASE_URL=postgresql://postgres:AlbinAntony1233!@db.vkdhylmfplwjzvefmhgf.supabase.co:5432/postgres
@@ -62,6 +65,7 @@ SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 STORAGE_BUCKET=chat-images
 CORS_ORIGIN=https://your-frontend-domain.vercel.app
 ```
+
 
 ### Frontend (Vercel/Netlify):
 ```bash

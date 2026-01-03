@@ -15,6 +15,32 @@ import { aiRoutes } from './routes/ai.js';
 import inviteRoutes from './routes/invite.js';
 import { createWebsocketHandler } from './ws/handler.js';
 
+// PHASE 6.4: Validate required environment variables
+function validateEnvironment() {
+    const required = ['APP_BASE_URL', 'DATABASE_URL', 'REDIS_URL', 'JWT_ACCESS_SECRET'];
+    const missing = required.filter(key => !process.env[key]);
+
+    if (missing.length > 0) {
+        console.error('❌ FATAL: Missing required environment variables:', missing);
+        console.error('Set these in your .env file before starting the server.');
+        process.exit(1);
+    }
+
+    // Validate APP_BASE_URL format
+    const appBaseUrl = process.env.APP_BASE_URL!;
+    if (!appBaseUrl.startsWith('http://') && !appBaseUrl.startsWith('https://')) {
+        console.error('❌ FATAL: APP_BASE_URL must start with http:// or https://');
+        console.error(`   Current value: ${appBaseUrl}`);
+        process.exit(1);
+    }
+
+    console.log('✅ Environment validation passed');
+    console.log(`   APP_BASE_URL: ${appBaseUrl}`);
+}
+
+// Validate environment before starting
+validateEnvironment();
+
 const app = Fastify({
     logger: env.NODE_ENV === 'development'
         ? {
@@ -29,6 +55,7 @@ const app = Fastify({
         }
         : true,
 });
+
 
 // Register plugins
 await app.register(cors, {

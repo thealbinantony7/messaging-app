@@ -62,7 +62,9 @@ export default async function inviteRoutes(fastify: FastifyInstance) {
             );
 
             if (existing) {
-                const inviteUrl = `${process.env.APP_URL || 'http://localhost:5173'}/invite/${existing.token}`;
+                // PHASE 6.4: Use frontend URL (CORS_ORIGIN) for invite links
+                const frontendUrl = process.env.CORS_ORIGIN?.split(',')[0] || 'http://localhost:5173';
+                const inviteUrl = `${frontendUrl}/invite/${existing.token}`;
                 return reply.send({
                     token: existing.token,
                     inviteUrl,
@@ -78,7 +80,9 @@ export default async function inviteRoutes(fastify: FastifyInstance) {
                 [token, conversationId, userId]
             );
 
-            const inviteUrl = `${process.env.APP_URL || 'http://localhost:5173'}/invite/${token}`;
+            // PHASE 6.4: Use frontend URL (CORS_ORIGIN) for invite links
+            const frontendUrl = process.env.CORS_ORIGIN?.split(',')[0] || 'http://localhost:5173';
+            const inviteUrl = `${frontendUrl}/invite/${token}`;
 
             reply.send({
                 token,
@@ -168,7 +172,9 @@ export default async function inviteRoutes(fastify: FastifyInstance) {
                 return reply.code(404).send({ error: 'No invite link exists for this conversation' });
             }
 
-            const inviteUrl = `${process.env.APP_URL || 'http://localhost:5173'}/invite/${invite.token}`;
+            // PHASE 6.4: Use frontend URL (CORS_ORIGIN) for invite links
+            const frontendUrl = process.env.CORS_ORIGIN?.split(',')[0] || 'http://localhost:5173';
+            const inviteUrl = `${frontendUrl}/invite/${invite.token}`;
 
             reply.send({
                 token: invite.token,
