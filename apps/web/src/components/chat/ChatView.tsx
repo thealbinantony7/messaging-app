@@ -265,44 +265,70 @@ export function ChatView({ conversationId }: Props) {
         return () => window.visualViewport?.removeEventListener('resize', handleResize);
     }, []);
 
-    // Cleanup typing timeouts on unmount
+    // Cleanup typing timeouts on unmount or conversation change
     useEffect(() => {
         return () => {
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
             if (stopTypingTimeoutRef.current) clearTimeout(stopTypingTimeoutRef.current);
+            // Clear typing on conversation change
+            import('../../lib/ws').then(({ wsClient }) => {
+                wsClient.setTyping(conversationId, false);
+            });
         };
-    }, []);
+    }, [conversationId]);
 
     const handleTyping = () => {
-        // Clear existing typing timeout
-        if (typingTimeoutRef.current) {
-            clearTimeout(typingTimeoutRef.current);
+        // Don't emit if input is empty
+        if (!message.trim()) {
+            if (stopTypingTimeoutRef.current) clearTimeout(stopTypingTimeoutRef.current);
+            import('../../lib/ws').then(({ wsClient }) => {
+                wsClient.setTyping(conversationId, false);
+            });
+            return;
         }
 
-        // Debounce: emit typing event after 500ms of input
-        typingTimeoutRef.current = setTimeout(() => {
+        // Throttle: only emit if not already typing
+        if (!typingTimeoutRef.current) {
+            // Emit typing=true immediately
             import('../../lib/ws').then(({ wsClient }) => {
                 wsClient.setTyping(conversationId, true);
             });
 
-            // Auto-clear: stop typing after 3s of inactivity
-            if (stopTypingTimeoutRef.current) {
-                clearTimeout(stopTypingTimeoutRef.current);
+            // Set throttle timeout (2.5 seconds)
+            typingTimeoutRef.current = setTimeout(() => {
+                typingTimeoutRef.current = null;
+            }, 2500);
+        }
+
+        // Reset stop-typing timeout
+        if (stopTypingTimeoutRef.current) {
+            clearTimeout(stopTypingTimeoutRef.current);
+        }
+
+        // Auto-stop typing after 3s of no activity
+        stopTypingTimeoutRef.current = setTimeout(() => {
+            import('../../lib/ws').then(({ wsClient }) => {
+                wsClient.setTyping(conversationId, false);
+            });
+            if (typingTimeoutRef.current) {
+                clearTimeout(typingTimeoutRef.current);
+                typingTimeoutRef.current = null;
             }
-            stopTypingTimeoutRef.current = setTimeout(() => {
-                import('../../lib/ws').then(({ wsClient }) => {
-                    wsClient.setTyping(conversationId, false);
-                });
-            }, 3000);
-        }, 500);
+        }, 3000);
     };
 
     const handleSend = async () => {
         if (!message.trim() || !isOnline) return; // Block send when offline
 
-        // Stop typing indicator
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        if (stopTypingTimeoutRef.current) clearTimeout(stopTypingTimeoutRef.current);
+        // Stop typing indicator immediately
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = null;
+        }
+        if (stopTypingTimeoutRef.current) {
+            clearTimeout(stopTypingTimeoutRef.current);
+            stopTypingTimeoutRef.current = null;
+        }
         import('../../lib/ws').then(({ wsClient }) => {
             wsClient.setTyping(conversationId, false);
         });
@@ -345,8 +371,14 @@ export function ChatView({ conversationId }: Props) {
 
     // PHASE 8.4: Clear typing on blur
     const handleInputBlur = () => {
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-        if (stopTypingTimeoutRef.current) clearTimeout(stopTypingTimeoutRef.current);
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = null;
+        }
+        if (stopTypingTimeoutRef.current) {
+            clearTimeout(stopTypingTimeoutRef.current);
+            stopTypingTimeoutRef.current = null;
+        }
         import('../../lib/ws').then(({ wsClient }) => {
             wsClient.setTyping(conversationId, false);
         });
