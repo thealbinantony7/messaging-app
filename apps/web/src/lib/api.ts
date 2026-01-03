@@ -18,8 +18,27 @@ class ApiClient {
             'Content-Type': 'application/json',
         };
 
-        if (this.accessToken && !options?.skipAuth) {
-            headers['Authorization'] = `Bearer ${this.accessToken}`;
+        // CRITICAL FIX: Always read token from localStorage to avoid race conditions
+        // This ensures retry and reload scenarios work correctly
+        if (!options?.skipAuth) {
+            let token = this.accessToken;
+
+            // Fallback to localStorage if in-memory token is not set (handles rehydration race)
+            if (!token) {
+                try {
+                    const stored = localStorage.getItem('linkup-auth');
+                    if (stored) {
+                        const parsed = JSON.parse(stored);
+                        token = parsed.state?.accessToken || null;
+                    }
+                } catch (err) {
+                    console.error('Failed to read token from localStorage:', err);
+                }
+            }
+
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
         }
 
         const response = await fetch(`${API_BASE}${path}`, {
