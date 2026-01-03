@@ -59,11 +59,19 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
                     WHERE m.conversation_id = c.id 
                     AND (cm.last_read_msg_id IS NULL OR m.created_at > (SELECT created_at FROM messages WHERE id = cm.last_read_msg_id))
                     AND m.sender_id != $1
-                ) as "unreadCount"
+                ) as "unreadCount",
+                -- PHASE 8.3: Pin status
+                CASE WHEN cp.pinned_at IS NOT NULL THEN true ELSE false END as "isPinned",
+                cp.pinned_at as "pinnedAt"
             FROM conversations c
             JOIN conversation_members cm ON cm.conversation_id = c.id
+            LEFT JOIN conversation_pins cp ON cp.conversation_id = c.id AND cp.user_id = $1
             WHERE cm.user_id = $1
-            ORDER BY c.updated_at DESC
+            -- PHASE 8.3: Order pinned first (DESC pinnedAt), then unpinned (DESC lastMessage.createdAt)
+            ORDER BY 
+                CASE WHEN cp.pinned_at IS NOT NULL THEN 0 ELSE 1 END,
+                cp.pinned_at DESC NULLS LAST,
+                (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1) DESC NULLS LAST
         `, [payload.id]);
 
         // Fetch members for each conversation
@@ -199,5 +207,50 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
         });
 
         return { conversationId };
+    });
+
+    // PHASE 8.3: Pin conversation
+    fastify.post<{ Params: { id: string } }>('/:id/pin', async (request, reply) => {
+        const { id: conversationId } = request.params;
+        const userId = (request.user as JwtPayload).id;
+
+        // 1. Verify conversation exists
+        const conv = await queryOne('SELECT id FROM conversations WHERE id = $1', [conversationId]);
+        if (!conv) {
+            return reply.code(404).send({ error: 'Conversation not found' });
+        }
+
+        // 2. Verify user is member
+        const membership = await queryOne(
+            'SELECT id FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
+            [conversationId, userId]
+        );
+        if (!membership) {
+            return reply.code(403).send({ error: 'Forbidden' });
+        }
+
+        // 3. Pin (idempotent - noop if already pinned)
+        await query(
+            `INSERT INTO conversation_pins (user_id, conversation_id, pinned_at)
+             VALUES ($1, $2, NOW())
+             ON CONFLICT (user_id, conversation_id) DO NOTHING`,
+            [userId, conversationId]
+        );
+
+        return { success: true };
+    });
+
+    // PHASE 8.3: Unpin conversation
+    fastify.delete<{ Params: { id: string } }>('/:id/pin', async (request, reply) => {
+        const { id: conversationId } = request.params;
+        const userId = (request.user as JwtPayload).id;
+
+        // Unpin (idempotent - noop if not pinned)
+        await query(
+            'DELETE FROM conversation_pins WHERE user_id = $1 AND conversation_id = $2',
+            [userId, conversationId]
+        );
+
+        return { success: true };
     });
 };

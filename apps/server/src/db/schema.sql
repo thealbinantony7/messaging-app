@@ -124,6 +124,19 @@ END $$;
 
 
 -- ============================================================================
+-- PHASE 8.3: CONVERSATION PINS (per-user)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS conversation_pins (
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    pinned_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, conversation_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_pins_user ON conversation_pins(user_id);
+
+-- ============================================================================
 -- REACTIONS
 -- ============================================================================
 
