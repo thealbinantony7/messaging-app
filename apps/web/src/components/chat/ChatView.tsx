@@ -9,6 +9,7 @@ import { api } from '../../lib/api';
 import { wsClient } from '../../lib/ws';
 import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
+import { SearchModal } from './SearchModal'; // PHASE 7.2
 import './ChatView.css';
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
 export function ChatView({ conversationId }: Props) {
     const [message, setMessage] = useState('');
     const [showAiMenu, setShowAiMenu] = useState(false);
+    const [showSearch, setShowSearch] = useState(false); // PHASE 7.2
     const [uploadingImage, setUploadingImage] = useState<{
         preview: string;
         progress: number;

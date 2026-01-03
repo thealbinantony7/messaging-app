@@ -135,6 +135,21 @@ class ApiClient {
         return this.request<{ success: boolean }>('DELETE', `/messages/${id}`);
     }
 
+    // PHASE 7.2: Message search
+    async searchMessages(conversationId: string, query: string) {
+        const params = new URLSearchParams({ conversationId, q: query });
+        return this.request<{
+            results: Array<{
+                id: string;
+                content: string;
+                type: string;
+                createdAt: string;
+                senderId: string;
+                senderName: string;
+            }>
+        }>('GET', `/messages/search?${params}`);
+    }
+
     // AI
     async rewrite(text: string, style: 'shorter' | 'clearer' | 'formal' | 'casual') {
         return this.request<import('@linkup/shared').RewriteResponse>('POST', '/ai/rewrite', {

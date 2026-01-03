@@ -13,6 +13,7 @@ import { messageRoutes } from './routes/messages.js';
 import { uploadRoutes } from './routes/upload.js';
 import { aiRoutes } from './routes/ai.js';
 import inviteRoutes from './routes/invite.js';
+import searchRoutes from './routes/search.js';
 import { createWebsocketHandler } from './ws/handler.js';
 
 // PHASE 6.4: Validate required environment variables
@@ -92,6 +93,7 @@ app.register(messageRoutes, { prefix: '/api/messages' });
 app.register(uploadRoutes, { prefix: '/api/upload' });
 app.register(aiRoutes, { prefix: '/api/ai' });
 app.register(inviteRoutes, { prefix: '/api' });
+app.register(searchRoutes, { prefix: '/api/messages' }); // PHASE 7.2
 
 // WebSocket
 app.register(async function (fastify) {
