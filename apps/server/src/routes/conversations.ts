@@ -34,81 +34,94 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.get('/', async (request, reply) => {
         const payload = request.user as JwtPayload;
 
-        // Query conversations where user is a member
-        // Including last message info
-        const conversations = await query<any>(`
-            SELECT 
-                c.*,
-                (
-                    SELECT json_build_object(
-                        'id', m.id,
-                        'content', m.content,
-                        'type', m.type,
-                        'senderId', m.sender_id,
-                        'createdAt', m.created_at
-                    )
-                    FROM messages m
-                    WHERE m.conversation_id = c.id
-                    ORDER BY m.created_at DESC
-                    LIMIT 1
-                ) as "lastMessage",
-                (
-                    SELECT COUNT(*)::int
-                    FROM messages m
-                    LEFT JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = $1
-                    WHERE m.conversation_id = c.id 
-                    AND (cm.last_read_msg_id IS NULL OR m.created_at > (SELECT created_at FROM messages WHERE id = cm.last_read_msg_id))
-                    AND m.sender_id != $1
-                ) as "unreadCount",
-                -- PHASE 8.3: Pin status
-                CASE WHEN cp.pinned_at IS NOT NULL THEN true ELSE false END as "isPinned",
-                cp.pinned_at as "pinnedAt"
-            FROM conversations c
-            JOIN conversation_members cm ON cm.conversation_id = c.id
-            LEFT JOIN conversation_pins cp ON cp.conversation_id = c.id AND cp.user_id = $1
-            WHERE cm.user_id = $1
-            -- PHASE 8.3: Order pinned first (DESC pinnedAt), then by activity (Message or UpdatedAt)
-            ORDER BY 
-                CASE WHEN cp.pinned_at IS NOT NULL THEN 0 ELSE 1 END,
-                cp.pinned_at DESC NULLS LAST,
-                -- Fallback to updated_at if no messages (e.g. new group)
-                COALESCE(
-                    (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1),
-                    c.updated_at
-                ) DESC NULLS LAST
-        `, [payload.id]);
-
-        // Fetch members for each conversation
-        for (const conv of conversations) {
-            const members = await query<any>(`
+        try {
+            // Query conversations where user is a member
+            // Including last message info
+            const conversations = await query<any>(`
                 SELECT 
-                    cm.id, cm.role, cm.joined_at as "joinedAt",
-                    u.id as "userId", u.email, u.display_name as "displayName", u.avatar_url as "avatarUrl",
-                    u.status, u.last_seen_at as "lastSeenAt",
-                    (NOW() - COALESCE(u.last_seen_at, '1970-01-01'::timestamptz)) < INTERVAL '30 seconds' as "isOnline"
-                FROM conversation_members cm
-                JOIN users u ON cm.user_id = u.id
-                WHERE cm.conversation_id = $1
-            `, [conv.id]);
+                    c.*,
+                    (
+                        SELECT json_build_object(
+                            'id', m.id,
+                            'content', m.content,
+                            'type', m.type,
+                            'senderId', m.sender_id,
+                            'createdAt', m.created_at
+                        )
+                        FROM messages m
+                        WHERE m.conversation_id = c.id
+                        ORDER BY m.created_at DESC
+                        LIMIT 1
+                    ) as "lastMessage",
+                    (
+                        SELECT COUNT(*)::int
+                        FROM messages m
+                        LEFT JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = $1
+                        WHERE m.conversation_id = c.id 
+                        AND (cm.last_read_msg_id IS NULL OR m.created_at > (SELECT created_at FROM messages WHERE id = cm.last_read_msg_id))
+                        AND m.sender_id != $1
+                    ) as "unreadCount",
+                    -- PHASE 8.3: Pin status (safe - returns false if table doesn't exist)
+                    COALESCE(
+                        (SELECT true FROM conversation_pins WHERE conversation_id = c.id AND user_id = $1 LIMIT 1),
+                        false
+                    ) as "isPinned",
+                    (SELECT pinned_at FROM conversation_pins WHERE conversation_id = c.id AND user_id = $1 LIMIT 1) as "pinnedAt"
+                FROM conversations c
+                JOIN conversation_members cm ON cm.conversation_id = c.id
+                WHERE cm.user_id = $1
+                -- PHASE 8.3: Order pinned first (DESC pinnedAt), then by activity (Message or UpdatedAt)
+                ORDER BY 
+                    COALESCE(
+                        (SELECT true FROM conversation_pins WHERE conversation_id = c.id AND user_id = $1 LIMIT 1),
+                        false
+                    ) DESC,
+                    (SELECT pinned_at FROM conversation_pins WHERE conversation_id = c.id AND user_id = $1 LIMIT 1) DESC NULLS LAST,
+                    -- Fallback to updated_at if no messages (e.g. new group)
+                    COALESCE(
+                        (SELECT created_at FROM messages WHERE conversation_id = c.id ORDER BY created_at DESC LIMIT 1),
+                        c.updated_at
+                    ) DESC NULLS LAST
+            `, [payload.id]);
 
-            conv.members = members.map(m => ({
-                id: m.id,
-                role: m.role,
-                joinedAt: m.joinedAt,
-                userId: m.userId,
-                user: {
-                    id: m.userId,
-                    email: m.email,
-                    displayName: m.displayName,
-                    avatarUrl: m.avatarUrl,
-                    status: m.status,
-                    lastSeenAt: m.lastSeenAt,
-                    isOnline: m.isOnline  // PHASE 6.2: Backend-computed presence
-                }
-            }));
+            // Fetch members for each conversation
+            for (const conv of conversations) {
+                const members = await query<any>(`
+                    SELECT 
+                        cm.id, cm.role, cm.joined_at as "joinedAt",
+                        u.id as "userId", u.email, u.display_name as "displayName", u.avatar_url as "avatarUrl",
+                        u.status, u.last_seen_at as "lastSeenAt",
+                        (NOW() - COALESCE(u.last_seen_at, '1970-01-01'::timestamptz)) < INTERVAL '30 seconds' as "isOnline"
+                    FROM conversation_members cm
+                    JOIN users u ON cm.user_id = u.id
+                    WHERE cm.conversation_id = $1
+                `, [conv.id]);
+
+                conv.members = members.map(m => ({
+                    id: m.id,
+                    role: m.role,
+                    joinedAt: m.joinedAt,
+                    userId: m.userId,
+                    user: {
+                        id: m.userId,
+                        email: m.email,
+                        displayName: m.displayName,
+                        avatarUrl: m.avatarUrl,
+                        status: m.status,
+                        lastSeenAt: m.lastSeenAt,
+                        isOnline: m.isOnline  // PHASE 6.2: Backend-computed presence
+                    }
+                }));
+            }
+
+            return { conversations };
+        } catch (error) {
+            console.error('Failed to fetch conversations:', error);
+            return reply.code(500).send({
+                error: 'Failed to load conversations',
+                details: error instanceof Error ? error.message : 'Unknown error'
+            });
         }
-
-        return { conversations };
     });
 
     // Get single conversation
