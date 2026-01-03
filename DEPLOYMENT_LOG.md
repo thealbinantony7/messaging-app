@@ -1,9 +1,40 @@
 # 🚀 LUCENT Deployment Log
 
+**Date**: January 3, 2026
+**Commit**: `HEAD` (Phase 6.3)
+
+## 📦 Release Notes (v1.2.0 - "Read Semantics Finalization")
+
+### Critical Improvements
+- **Deterministic Read Receipts**: Finalized backend-authoritative read logic. Red ticks (read) now derive strictly from `read_at` field.
+- **Database Integrity**: Added `CHECK` constraints to `messages` table to ensure `read_at >= delivered_at >= created_at`.
+- **Sender Validation**: Backend now explicitly prevents users from marking their own messages as read.
+- **Membership Protection**: WebSocket read events are now rejected if the user is not a member of the conversation or the message doesn't belong to the conversation.
+
+### Simplification
+- **Zero-Cilent Heuristics**: Removed visibility-detection, scroll-tracking, and other client-side hacks for read receipts.
+- **"Dumb" Frontend**: Frontend now simply emits a `mark_read` intent for the last message on mount; backend handles all validation and state transitions.
+
+### Stability
+- **Idempotent Updates**: Repeated `mark_read` calls are now validated and ignored after the first write, preventing redundant broadcasts.
+- **Cross-Platform Consistency**: Identical behavior on iOS, Android, and Desktop by design.
+
+## 🛠️ Infrastructure
+- **Database**: PostgreSQL 15+ (Hardened constraints)
+- **Frontend**: React + Vite (Build Verified: PASS)
+- **Backend**: Fastify + WebSockets (Validation Hardened)
+
+## ✅ Verification
+- Build Status: **PASS**
+- TypeScript Check: **PASS**
+- Invariant Validation: **100% Correct**
+
+---
+
+## 📦 Release Notes (v1.1.0 - "Stabilization")
 **Date**: January 1, 2026
 **Commit**: `0e2f6c8`
 
-## 📦 Release Notes (v1.1.0 - "Stabilization")
 
 ### Critical Fixes
 - **500 Internal Server Errors**: Resolved by repairing database schema (added missing `invite_tokens` and message columns).

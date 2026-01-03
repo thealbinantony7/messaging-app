@@ -368,7 +368,58 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                         // Log: msg.read.received
                         fastify.log.info({ event: 'msg.read.received', messageId, conversationId, userId, timestamp: new Date().toISOString() }, 'Read event received');
 
-                        // PHASE 6: Persist read_at to message (authoritative)
+                        // PHASE 6.3: Validation 1 - Verify user is member of conversation
+                        const isMember = await queryOne<{ id: string }>(
+                            'SELECT id FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
+                            [conversationId, userId]
+                        );
+
+                        if (!isMember) {
+                            fastify.log.warn({ event: 'msg.read.rejected', reason: 'not_member', messageId, conversationId, userId }, 'Read rejected: not a member');
+                            send(socket, {
+                                type: 'error',
+                                payload: { code: 'FORBIDDEN', message: 'Not a member of this conversation' },
+                            });
+                            break;
+                        }
+
+                        // PHASE 6.3: Validation 2 - Fetch message and verify it belongs to conversation
+                        const msg = await queryOne<{ sender_id: string; delivered_at: string | null; read_at: string | null; created_at: string }>(
+                            'SELECT sender_id, delivered_at, read_at, created_at FROM messages WHERE id = $1 AND conversation_id = $2',
+                            [messageId, conversationId]
+                        );
+
+                        if (!msg) {
+                            fastify.log.warn({ event: 'msg.read.rejected', reason: 'message_not_found', messageId, conversationId, userId }, 'Read rejected: message not found');
+                            send(socket, {
+                                type: 'error',
+                                payload: { code: 'NOT_FOUND', message: 'Message not found' },
+                            });
+                            break;
+                        }
+
+                        // PHASE 6.3: Validation 3 - Can't read own messages
+                        if (msg.sender_id === userId) {
+                            fastify.log.warn({ event: 'msg.read.rejected', reason: 'own_message', messageId, conversationId, userId }, 'Read rejected: cannot read own message');
+                            // Silently ignore (not an error, just a no-op)
+                            break;
+                        }
+
+                        // PHASE 6.3: Validation 4 - Message must be delivered before it can be read
+                        if (!msg.delivered_at) {
+                            fastify.log.warn({ event: 'msg.read.rejected', reason: 'not_delivered', messageId, conversationId, userId, deliveredAt: msg.delivered_at }, 'Read rejected: message not delivered yet');
+                            // Silently ignore (message will be marked read when it gets delivered)
+                            break;
+                        }
+
+                        // PHASE 6.3: Validation 5 - Already read (idempotency)
+                        if (msg.read_at) {
+                            fastify.log.debug({ event: 'msg.read.noop', messageId, conversationId, userId, readAt: msg.read_at }, 'Read no-op: already read');
+                            // Already read, no-op (idempotent)
+                            break;
+                        }
+
+                        // PHASE 6.3: Persist read_at to message (backend-authoritative)
                         const readAt = new Date().toISOString();
                         await query(
                             'UPDATE messages SET read_at = $1 WHERE id = $2 AND read_at IS NULL',
@@ -385,7 +436,7 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                         // Log: msg.read.persisted
                         fastify.log.info({ event: 'msg.read.persisted', messageId, conversationId, userId, readAt, latencyMs: Date.now() - readStartTime, timestamp: new Date().toISOString() }, 'Read state persisted to DB');
 
-                        // PHASE 6: Broadcast read receipt with authoritative timestamp
+                        // PHASE 6.3: Broadcast read receipt with authoritative timestamp
                         await broadcastToConversation(conversationId, {
                             type: 'read_receipt',
                             payload: { conversationId, userId, messageId, readAt },
@@ -395,6 +446,7 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                         fastify.log.info({ event: 'msg.read.broadcast', messageId, conversationId, userId, readAt, timestamp: new Date().toISOString() }, 'Read receipt broadcast via Redis');
                         break;
                     }
+
 
                     case 'react': {
                         const { messageId, emoji } = message.payload;

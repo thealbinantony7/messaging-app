@@ -102,29 +102,33 @@ export function ChatView({ conversationId }: Props) {
     }, [conversationMessages.length, pending.length, conversationId]);
 
 
-    // PHASE 6: Simple read receipt - emit when conversation is open
+    // PHASE 6.3: Simple read receipt - emit when conversation is open
+    // Backend is authoritative and handles all validation
     // No visibility hacks, no touch tracking, no scroll detection
-    // Backend is authoritative, we just send the intent
     useEffect(() => {
         if (!conversationMessages.length || !user) return;
 
-        // Get the last message that's not from the current user
-        const lastOtherMessage = [...conversationMessages]
-            .reverse()
-            .find(msg => msg.senderId !== user.id);
+        // Get the last message in the conversation (regardless of sender)
+        const lastMessage = conversationMessages[conversationMessages.length - 1];
 
-        // Only emit if message exists and hasn't been read yet
-        if (lastOtherMessage && !lastOtherMessage.readAt) {
-            console.log('[PHASE6] Marking as read', {
+        // PHASE 6.3: Simplified - just mark the last message
+        // Backend will validate:
+        // - Is user a member?
+        // - Is message from someone else?
+        // - Is message delivered?
+        // - Is message already read?
+        if (lastMessage) {
+            console.log('[PHASE6.3] Marking conversation as read', {
                 conversationId,
-                messageId: lastOtherMessage.id,
+                messageId: lastMessage.id,
             });
-            wsClient.markRead(conversationId, lastOtherMessage.id);
+            wsClient.markRead(conversationId, lastMessage.id);
 
             // Clear unread count immediately (optimistic)
             useChatStore.getState().updateConversation(conversationId, { unreadCount: 0 });
         }
     }, [conversationMessages, conversationId, user]);
+
 
     // PHASE 6.1: Dev-mode invariant checks - catch impossible states
     useEffect(() => {

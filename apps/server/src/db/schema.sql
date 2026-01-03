@@ -100,6 +100,29 @@ BEGIN
     END IF; 
 END $$;
 
+-- PHASE 6.3: Add constraints to enforce read semantics invariants
+DO $$ 
+BEGIN 
+    -- Constraint: read_at requires delivered_at (can't be read without being delivered)
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_read_requires_delivered') THEN 
+        ALTER TABLE messages ADD CONSTRAINT chk_read_requires_delivered 
+            CHECK (read_at IS NULL OR delivered_at IS NOT NULL); 
+    END IF; 
+    
+    -- Constraint: read_at >= delivered_at (can't be read before delivery)
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_read_after_delivered') THEN 
+        ALTER TABLE messages ADD CONSTRAINT chk_read_after_delivered 
+            CHECK (read_at IS NULL OR delivered_at IS NULL OR read_at >= delivered_at); 
+    END IF; 
+    
+    -- Constraint: delivered_at >= created_at (can't be delivered before creation)
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_delivered_after_created') THEN 
+        ALTER TABLE messages ADD CONSTRAINT chk_delivered_after_created 
+            CHECK (delivered_at IS NULL OR delivered_at >= created_at); 
+    END IF; 
+END $$;
+
+
 -- ============================================================================
 -- REACTIONS
 -- ============================================================================
