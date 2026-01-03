@@ -419,11 +419,32 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                             break;
                         }
 
-                        // PHASE 6.3: Persist read_at to message (backend-authoritative)
+                        // PHASE 6.5: CRITICAL FIX - Mark ALL unread messages up to this point as read
+                        // Not just the single message, but all earlier unread messages too
                         const readAt = new Date().toISOString();
+
+                        // Get all unread messages from other users up to and including this message
+                        const unreadMessages = await query<{ id: string; created_at: string }>(`
+                            SELECT id, created_at 
+                            FROM messages 
+                            WHERE conversation_id = $1 
+                              AND sender_id != $2
+                              AND read_at IS NULL
+                              AND created_at <= $3
+                            ORDER BY created_at ASC
+                        `, [conversationId, userId, msg.created_at]);
+
+                        if (unreadMessages.length === 0) {
+                            fastify.log.debug({ event: 'msg.read.noop', messageId, conversationId, userId }, 'No unread messages to mark');
+                            break;
+                        }
+
+                        const messageIds = unreadMessages.map(m => m.id);
+
+                        // Mark all as read in a single query
                         await query(
-                            'UPDATE messages SET read_at = $1 WHERE id = $2 AND read_at IS NULL',
-                            [readAt, messageId]
+                            'UPDATE messages SET read_at = $1 WHERE id = ANY($2) AND read_at IS NULL',
+                            [readAt, messageIds]
                         );
 
                         // Update last read message in conversation_members
@@ -434,16 +455,35 @@ export function createWebsocketHandler(fastify: FastifyInstance) {
                         );
 
                         // Log: msg.read.persisted
-                        fastify.log.info({ event: 'msg.read.persisted', messageId, conversationId, userId, readAt, latencyMs: Date.now() - readStartTime, timestamp: new Date().toISOString() }, 'Read state persisted to DB');
+                        fastify.log.info({
+                            event: 'msg.read.persisted',
+                            messageId,
+                            conversationId,
+                            userId,
+                            readAt,
+                            count: messageIds.length,
+                            latencyMs: Date.now() - readStartTime,
+                            timestamp: new Date().toISOString()
+                        }, 'Read state persisted to DB');
 
-                        // PHASE 6.3: Broadcast read receipt with authoritative timestamp
-                        await broadcastToConversation(conversationId, {
-                            type: 'read_receipt',
-                            payload: { conversationId, userId, messageId, readAt },
-                        });
+                        // PHASE 6.5: Broadcast read receipts for ALL affected messages
+                        for (const affectedId of messageIds) {
+                            await broadcastToConversation(conversationId, {
+                                type: 'read_receipt',
+                                payload: { conversationId, userId, messageId: affectedId, readAt },
+                            });
+                        }
 
                         // Log: msg.read.broadcast
-                        fastify.log.info({ event: 'msg.read.broadcast', messageId, conversationId, userId, readAt, timestamp: new Date().toISOString() }, 'Read receipt broadcast via Redis');
+                        fastify.log.info({
+                            event: 'msg.read.broadcast',
+                            messageId,
+                            conversationId,
+                            userId,
+                            readAt,
+                            count: messageIds.length,
+                            timestamp: new Date().toISOString()
+                        }, 'Read receipts broadcast via Redis');
                         break;
                     }
 

@@ -28,6 +28,11 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
     const toggleReaction = useChatStore((state) => state.toggleReaction);
     const QUICK_EMOJIS = ['👍', '❤️', '😂'];
 
+    // PHASE 6.5: Get conversation for channel type checking
+    const conversation = useChatStore((state) =>
+        state.conversations.find(c => c.id === message.conversationId)
+    );
+
     // Close menu when clicking outside
     useEffect(() => {
         if (!showMenu) return;
@@ -43,15 +48,34 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
     const renderStatus = () => {
         if (!isOwn) return null;
 
-        const statusToShow = status || 'sent';
+        // PHASE 6.5: CRITICAL FIX - Always derive status from message fields
+        // The 'status' prop is only set for pending messages
+        // For persisted messages, we MUST derive from deliveredAt/readAt
+        let statusToShow: MessageStatus | 'sending' = 'sent';
+
+        if (status) {
+            // Pending message (sending/failed)
+            statusToShow = status;
+        } else {
+            // Persisted message - derive from backend fields
+            if (conversation?.type === 'channel') {
+                statusToShow = 'sent'; // Channels never show delivery
+            } else if (message.readAt) {
+                statusToShow = 'read';
+            } else if (message.deliveredAt) {
+                statusToShow = 'delivered';
+            } else {
+                statusToShow = 'sent';
+            }
+        }
 
         switch (statusToShow) {
             case 'sending':
                 return <Clock size={14} className="message-status-icon sending" />;
             case 'sent':
-                return <Check size={14} className="message-status-icon" />;
+                return <Check size={14} className="message-status-icon sent" />;
             case 'delivered':
-                return <CheckCheck size={14} className="message-status-icon" />;
+                return <CheckCheck size={14} className="message-status-icon delivered" />;
             case 'read':
                 return <CheckCheck size={14} className="message-status-icon read" />;
             case 'failed':
