@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { ArrowLeft, MoreVertical, Search, Image, Mic, Send, Smile, Sparkles, Link } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { MessageWithDetails } from '@linkup/shared';
@@ -59,6 +59,7 @@ export function ChatView({ conversationId }: Props) {
     const fetchMessages = useChatStore((state) => state.fetchMessages);
     const sendMessage = useChatStore((state) => state.sendMessage);
     const retryMessage = useChatStore((state) => state.retryMessage);
+    const markConversationAsRead = useChatStore((state) => state.markConversationAsRead);
 
     // PHASE 9.1: Guard against missing conversation
     if (!conversation && !isLoading) {
@@ -128,30 +129,22 @@ export function ChatView({ conversationId }: Props) {
         fetchMessages(conversationId);
     }, [conversationId, fetchMessages]);
 
-    // Auto-scroll to bottom when messages load or change
-    useEffect(() => {
-        // Use setTimeout to ensure DOM has rendered
-        const scrollToBottom = () => {
-            if (messagesEndRef.current) {
-                // Use instant scroll (no smooth) to ensure it reaches bottom
-                messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
-            }
-        };
+    // PHASE 9.5: Robust scroll-to-bottom
+    // Use useLayoutEffect to ensure scroll happens immediately after DOM update
+    // No animations, no timeouts -> Deterministic
+    useLayoutEffect(() => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+        }
+    }, [renderedMessages]); // Scroll when messages change
 
-        // Small delay to ensure messages are rendered
-        const timeoutId = setTimeout(scrollToBottom, 100);
-
-        return () => clearTimeout(timeoutId);
-    }, [conversationId, conversationMessages.length]);
-
-    // Mark conversation as read when opening
+    // PHASE 9.5: Reliable read status sync
+    // Mark as read when opening OR when new messages arrive
     useEffect(() => {
         if (conversationId) {
-            api.markConversationAsRead(conversationId).catch(err => {
-                console.error('Failed to mark conversation as read:', err);
-            });
+            markConversationAsRead(conversationId);
         }
-    }, [conversationId]);
+    }, [conversationId, renderedMessages.length, markConversationAsRead]); // Trigger on length change (new messages)
 
     // PHASE 8.1: Load draft on conversation change
     useEffect(() => {

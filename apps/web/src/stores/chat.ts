@@ -70,6 +70,9 @@ interface ChatState {
     handleReadReceipt: (payload: import('@linkup/shared').ReadReceiptPayload) => void;
     handleMessageUpdated: (payload: import('@linkup/shared').MessageUpdatedPayload) => void;
     handleMessageDeleted: (payload: import('@linkup/shared').MessageDeletedPayload) => void;
+
+    // Phase 9.5: Mark as read action
+    markConversationAsRead: (conversationId: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -86,6 +89,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
             c.id === id ? { ...c, ...updates } : c
         ),
     })),
+    // Phase 9.5: Mark as read implementation
+    markConversationAsRead: async (conversationId: string) => {
+        try {
+            await import('../lib/api').then(({ api }) => api.markConversationAsRead(conversationId));
+            set((state) => ({
+                conversations: state.conversations.map((c) =>
+                    c.id === conversationId ? { ...c, unreadCount: 0 } : c
+                ),
+            }));
+        } catch (error) {
+            console.error('Failed to mark conversation as read', error);
+        }
+    },
     removeConversation: (id) => set((state) => ({
         conversations: state.conversations.filter((c) => c.id !== id),
     })),

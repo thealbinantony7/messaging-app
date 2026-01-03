@@ -1,5 +1,4 @@
 import { memo } from 'react';
-import { motion } from 'framer-motion';
 import type { ConversationWithMembers } from '@linkup/shared';
 import { useUIStore } from '../../stores/ui';
 import { useAuthStore } from '../../stores/auth';
@@ -36,10 +35,9 @@ export const ConversationItem = memo(function ConversationItem({ conversation }:
     const hasUnread = conversation.unreadCount > 0;
 
     return (
-        <motion.button
+        <button
             className={`group w-full max-w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left ${isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50 text-foreground'}`}
             onClick={() => setActiveConversation(conversation.id)}
-            layout={false} // Disable layout animation
         >
             {/* Avatar */}
             <div className="relative shrink-0 w-12 h-12">
@@ -88,6 +86,6 @@ export const ConversationItem = memo(function ConversationItem({ conversation }:
                     )}
                 </div>
             </div>
-        </motion.button>
+        </button>
     );
 });

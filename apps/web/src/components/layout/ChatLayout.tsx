@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { useUIStore } from '../../stores/ui';
 import { useChatStore } from '../../stores/chat';
 import { useAuthStore } from '../../stores/auth';
@@ -59,33 +58,25 @@ export function ChatLayout() {
                 case 'reaction_updated':
                     useChatStore.getState().handleReactionUpdated(msg.payload);
                     break;
-                // Add other handlers here
             }
         });
 
         return unsubscribe;
-    }, [user]); // Only depend on user, not the handler functions
+    }, [user]);
 
-    // On mobile, show either sidebar or chat, not both
     const showSidebar = isMobile ? !activeConversationId : sidebarOpen;
     const showChat = isMobile ? !!activeConversationId : true;
 
     return (
         <div className="chat-layout">
-            {/* Sidebar */}
-            <motion.aside
-                className="chat-sidebar"
-                initial={false}
-                animate={{
-                    width: showSidebar ? 'var(--sidebar-width)' : 0,
-                    opacity: showSidebar ? 1 : 0,
-                }}
-                transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            >
-                {showSidebar && <Sidebar />}
-            </motion.aside>
+            {/* Sidebar - NO ANIMATIONS for instant render */}
+            {showSidebar && (
+                <aside className="chat-sidebar">
+                    <Sidebar />
+                </aside>
+            )}
 
-            {/* Main chat area */}
+            {/* Main chat area - NO ANIMATIONS */}
             {showChat && (
                 <main className="chat-main">
                     {activeConversationId ? (
