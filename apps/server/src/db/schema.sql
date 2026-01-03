@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS reactions (
     emoji       VARCHAR(10) NOT NULL,
     created_at  TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     
-    UNIQUE(message_id, user_id)
+    UNIQUE(message_id, user_id, emoji)  -- PHASE 8.2: Allow multiple reactions per user
 );
 
 CREATE INDEX IF NOT EXISTS idx_reactions_message ON reactions(message_id);

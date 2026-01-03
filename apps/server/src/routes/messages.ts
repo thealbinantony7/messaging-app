@@ -272,30 +272,85 @@ export const messageRoutes: FastifyPluginAsync = async (fastify) => {
         return { success: true };
     });
 
-    // Add reaction
+    // PHASE 8.2: Toggle reaction (add/remove)
     fastify.post<{ Params: { id: string }; Body: { emoji: string } }>(
         '/:id/reactions',
         async (request, reply) => {
-            const { id } = request.params;
+            const { id: messageId } = request.params;
             const { emoji } = request.body;
+            const userId = (request.user as { id: string }).id;
 
-            // TODO: Implement
-            // 1. Verify user can access message
-            // 2. Upsert reaction (replace if exists)
-            // 3. Broadcast via WebSocket
+            if (!emoji || emoji.length > 10) {
+                return reply.code(400).send({ error: 'Invalid emoji' });
+            }
 
-            return { success: true };
+            // 1. Verify message exists and user can access it
+            const msg = await queryOne<{ conversation_id: string }>(
+                'SELECT conversation_id FROM messages WHERE id = $1',
+                [messageId]
+            );
+
+            if (!msg) {
+                return reply.code(404).send({ error: 'Message not found' });
+            }
+
+            // 2. Verify user is member of conversation
+            const isMember = await queryOne(
+                'SELECT 1 FROM conversation_members WHERE conversation_id = $1 AND user_id = $2',
+                [msg.conversation_id, userId]
+            );
+
+            if (!isMember) {
+                return reply.code(403).send({ error: 'Forbidden' });
+            }
+
+            // 3. Toggle reaction (check if exists, then add/remove)
+            const existing = await queryOne<{ id: string }>(
+                'SELECT id FROM reactions WHERE message_id = $1 AND user_id = $2 AND emoji = $3',
+                [messageId, userId, emoji]
+            );
+
+            if (existing) {
+                // Remove reaction
+                await query(
+                    'DELETE FROM reactions WHERE id = $1',
+                    [existing.id]
+                );
+            } else {
+                // Add reaction
+                await query(
+                    'INSERT INTO reactions (message_id, user_id, emoji) VALUES ($1, $2, $3)',
+                    [messageId, userId, emoji]
+                );
+            }
+
+            // 4. Get aggregated reactions for this message
+            const reactions = await query<{ emoji: string; count: string; user_ids: string[] }>(
+                `SELECT emoji, COUNT(*)::text as count, array_agg(user_id) as user_ids
+                 FROM reactions
+                 WHERE message_id = $1
+                 GROUP BY emoji`,
+                [messageId]
+            );
+
+            const aggregated = reactions.map(r => ({
+                emoji: r.emoji,
+                count: parseInt(r.count),
+                reactedByMe: r.user_ids.includes(userId)
+            }));
+
+            // 5. Broadcast via WebSocket
+            const { redisPub } = await import('../lib/redis.js');
+            await redisPub.publish(`conv:${msg.conversation_id}`, JSON.stringify({
+                type: 'reaction_update',
+                payload: {
+                    messageId,
+                    conversationId: msg.conversation_id,
+                    reactions: aggregated
+                }
+            }));
+
+            return { success: true, reactions: aggregated };
         }
     );
-
-    // Remove reaction
-    fastify.delete<{ Params: { id: string } }>('/:id/reactions', async (request, reply) => {
-        const { id } = request.params;
-
-        // TODO: Implement
-        // 1. Delete user's reaction on this message
-        // 2. Broadcast via WebSocket
-
-        return { success: true };
-    });
 };
