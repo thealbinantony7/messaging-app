@@ -732,21 +732,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
         console.log('[PHASE6] Delivery receipt', { messageId, deliveredAt });
     },
 
-    // PHASE 6: Backend-authoritative read receipt handler
-    // Simply update the message's readAt from backend payload
+    // PHASE 8.6: Backend-authoritative read receipt handler
+    // Updates message readAt AND tracks per-user reads for group chats
     handleReadReceipt: (payload) => {
-        const { messageId, conversationId, readAt } = payload;
+        const { messageId, conversationId, readAt, userId } = payload;
         if (!readAt) return;
 
-        set((state) => ({
-            messages: {
+        set((state) => {
+            // Update message readAt timestamp
+            const updatedMessages = {
                 ...state.messages,
                 [conversationId]: (state.messages[conversationId] || []).map(m =>
                     m.id === messageId && !m.readAt ? { ...m, readAt } : m
                 )
+            };
+
+            // PHASE 8.6: Track per-user reads for group chats
+            const updatedSeenReceipts = { ...state.seenReceipts };
+            if (userId) {
+                const current = updatedSeenReceipts[messageId] || new Set();
+                const updated = new Set(current);
+                updated.add(userId);
+                updatedSeenReceipts[messageId] = updated;
             }
-        }));
-        console.log('[PHASE6] Read receipt', { messageId, readAt });
+
+            return {
+                messages: updatedMessages,
+                seenReceipts: updatedSeenReceipts
+            };
+        });
+        console.log('[PHASE8.6] Read receipt', { messageId, userId, readAt });
     },
 }));
 

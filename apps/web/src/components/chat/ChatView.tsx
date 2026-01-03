@@ -60,13 +60,42 @@ export function ChatView({ conversationId }: Props) {
         return () => clearInterval(checkConnection);
     }, []);
 
-    // PHASE 6: Derive status directly from message fields (backend-authoritative)
+    // PHASE 8.6: WhatsApp-style group read receipts
     const getMessageStatus = (message: MessageWithDetails): 'sent' | 'delivered' | 'read' => {
         // Skip channels - no delivery receipts for channels
         if (conversation?.type === 'channel') return 'sent';
 
-        // PHASE 6: Backend is the ONLY source of truth
-        // Status is derived from message.deliveredAt/readAt timestamps
+        // For 1:1 chats, use simple logic (UNCHANGED)
+        if (conversation?.type === 'dm') {
+            if (message.readAt) return 'read';
+            if (message.deliveredAt) return 'delivered';
+            return 'sent';
+        }
+
+        // For group chats, check if ALL active members have read
+        if (conversation?.type === 'group') {
+            // If message not delivered yet
+            if (!message.deliveredAt) return 'sent';
+
+            // Get active members (exclude sender, exclude left members)
+            const activeMembers = conversation.members.filter(
+                (m) => m.userId !== message.senderId && m.joinedAt // joinedAt exists = active member
+            );
+
+            // If no other members, mark as delivered
+            if (activeMembers.length === 0) return 'delivered';
+
+            // Check if ALL active members have read this message
+            // Use seenReceipts from store (populated by read_receipt WebSocket events)
+            const seenByUsers = useChatStore.getState().seenReceipts[message.id] || new Set();
+
+            const allMembersRead = activeMembers.every((m) => seenByUsers.has(m.userId));
+
+            if (allMembersRead) return 'read';
+            return 'delivered'; // Partial reads = grey ticks
+        }
+
+        // Fallback: Backend-authoritative (original logic)
         if (message.readAt) return 'read';
         if (message.deliveredAt) return 'delivered';
         return 'sent';
