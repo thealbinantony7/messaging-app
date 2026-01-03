@@ -268,15 +268,6 @@ class ApiClient {
     async getInviteLink(conversationId: string) {
         return this.request<import('@linkup/shared').CreateInviteLinkResponse>('GET', `/invite/${conversationId}`);
     }
-
-    // PHASE 8.3: Conversation pinning
-    async pinConversation(conversationId: string) {
-        return this.request<{ success: boolean }>('POST', `/conversations/${conversationId}/pin`);
-    }
-
-    async unpinConversation(conversationId: string) {
-        return this.request<{ success: boolean }>('DELETE', `/conversations/${conversationId}/pin`);
-    }
 }
 
 export const api = new ApiClient();

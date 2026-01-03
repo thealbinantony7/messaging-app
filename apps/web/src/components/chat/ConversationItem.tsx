@@ -1,41 +1,19 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
-import { Pin } from 'lucide-react'; // PHASE 8.3
 import type { ConversationWithMembers } from '@linkup/shared';
 import { useUIStore } from '../../stores/ui';
 import { useAuthStore } from '../../stores/auth';
-import { useChatStore } from '../../stores/chat'; // PHASE 8.3
-import { api } from '../../lib/api'; // PHASE 8.3
 import { formatDistanceToNow } from '../../lib/utils';
 import './ConversationItem.css';
 
 interface Props {
-    conversation: ConversationWithMembers & { isPinned?: boolean; pinnedAt?: string }; // PHASE 8.3
+    conversation: ConversationWithMembers;
 }
 
 export const ConversationItem = memo(function ConversationItem({ conversation }: Props) {
-    const { activeConversationId, setActiveConversation, addToast } = useUIStore();
+    const { activeConversationId, setActiveConversation } = useUIStore();
     const { user } = useAuthStore();
-    const fetchConversations = useChatStore((state) => state.fetchConversations); // PHASE 8.3
     const isActive = activeConversationId === conversation.id;
-
-    // PHASE 8.3: Handle pin toggle
-    const handlePinToggle = async (e: React.MouseEvent) => {
-        e.stopPropagation(); // Don't trigger conversation selection
-
-        try {
-            if (conversation.isPinned) {
-                await api.unpinConversation(conversation.id);
-            } else {
-                await api.pinConversation(conversation.id);
-            }
-            // Refetch to get backend-ordered list
-            await fetchConversations();
-        } catch (err) {
-            console.error('Pin toggle failed', err);
-            addToast({ type: 'error', message: 'Failed to update pin' });
-        }
-    };
 
     // Get display name and avatar
     const getDisplayInfo = () => {
@@ -108,21 +86,6 @@ export const ConversationItem = memo(function ConversationItem({ conversation }:
                             {conversation.unreadCount}
                         </span>
                     )}
-                    {/* PHASE 8.3: Pin icon */}
-                    <button
-                        onClick={handlePinToggle}
-                        className={`shrink-0 p-1 rounded transition-opacity ${conversation.isPinned
-                                ? 'opacity-70 hover:opacity-100'
-                                : 'opacity-30 hover:opacity-60'
-                            }`}
-                        aria-label={conversation.isPinned ? 'Unpin conversation' : 'Pin conversation'}
-                        title={conversation.isPinned ? 'Unpin' : 'Pin'}
-                    >
-                        <Pin
-                            size={14}
-                            className={conversation.isPinned ? 'fill-current' : ''}
-                        />
-                    </button>
                 </div>
             </div>
         </motion.button>
