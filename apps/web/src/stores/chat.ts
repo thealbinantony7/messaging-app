@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { ConversationWithMembers, MessageWithDetails, MessageStatus, Reaction, ReactionUpdatedPayload } from '@linkup/shared';
 import { useAuthStore } from './auth';
+import { useUIStore } from './ui';
 import { wsClient } from '../lib/ws';
 
 interface PendingMessage extends MessageWithDetails {
@@ -35,7 +36,7 @@ interface ChatState {
 
     // Message status tracking (Phase 4: Trust & Delivery)
     messageStatus: Record<string, Record<string, MessageStatus>>; // conversationId -> messageId -> status
-    messageTimeouts: Map<string, NodeJS.Timeout>; // messageId -> timeout
+    messageTimeouts: Map<string, ReturnType<typeof setTimeout>>; // messageId -> timeout
     handleMessageTimeout: (messageId: string, conversationId: string) => void;
 
     // Typing indicators
@@ -89,17 +90,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
             c.id === id ? { ...c, ...updates } : c
         ),
     })),
-    // Phase 9.5: Mark as read implementation
+    // Phase 9.5: Mark as read implementation (Optimistic)
     markConversationAsRead: async (conversationId: string) => {
+        // Optimistic update: clear unread immediately
+        set((state) => ({
+            conversations: state.conversations.map((c) =>
+                c.id === conversationId ? { ...c, unreadCount: 0 } : c
+            ),
+        }));
+
         try {
             await import('../lib/api').then(({ api }) => api.markConversationAsRead(conversationId));
-            set((state) => ({
-                conversations: state.conversations.map((c) =>
-                    c.id === conversationId ? { ...c, unreadCount: 0 } : c
-                ),
-            }));
         } catch (error) {
             console.error('Failed to mark conversation as read', error);
+            // We could revert here, but for read status it's better to stay cleared
+            // and let the next refetch sync it if it failed.
         }
     },
     removeConversation: (id) => set((state) => ({
@@ -626,7 +631,18 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
             if (conversationIndex !== -1) {
                 const conversation = newConversations[conversationIndex];
-                const isUnread = !isMyMessage; // Only increment if not my message
+
+                // PHASE 9.6: Monotonic Unread Logic
+                // If active, unreadCount = 0 (and stay 0).
+                // If inactive, unreadCount += 1.
+                // Never decrement here (only open triggers decrement -> 0).
+
+                // Check if this conversation is currently open
+                // We need to import useUIStore here or use a getter if possible, 
+                // but better to access the store directly to avoid circular deps if in same file (it's not).
+                // We'll use the imported store.
+                const isActive = useUIStore.getState().activeConversationId === conversationId;
+                const isUnread = !isMyMessage && !isActive;
 
                 const updatedConversation = {
                     ...conversation,
@@ -638,7 +654,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
                         createdAt: message.createdAt
                     },
                     updatedAt: message.createdAt,
-                    unreadCount: conversation.unreadCount + (isUnread ? 1 : 0)
+                    // If active, force to 0. If inactive, increment.
+                    unreadCount: isActive ? 0 : (conversation.unreadCount + (isUnread ? 1 : 0))
                 };
 
                 // Move to top and update
