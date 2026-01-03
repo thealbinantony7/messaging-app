@@ -20,6 +20,7 @@ export function ChatView({ conversationId }: Props) {
     const [message, setMessage] = useState('');
     const [showAiMenu, setShowAiMenu] = useState(false);
     const [showSearch, setShowSearch] = useState(false); // PHASE 7.2
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null); // PHASE 7.5
     const [uploadingImage, setUploadingImage] = useState<{
         preview: string;
         progress: number;
@@ -173,6 +174,40 @@ export function ChatView({ conversationId }: Props) {
         });
     }, [conversation, conversationMessages, isLoading, conversationId]);
 
+    // PHASE 7.5: Global keyboard shortcuts
+    useEffect(() => {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            // Cmd/Ctrl + K → Open search
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                setShowSearch(true);
+            }
+
+            // Esc → Close modals
+            if (e.key === 'Escape') {
+                setShowSearch(false);
+                setShowAiMenu(false);
+            }
+
+            // ArrowUp → Edit last own message (only if input is empty)
+            if (e.key === 'ArrowUp' && !message.trim() && document.activeElement === inputRef.current) {
+                e.preventDefault();
+                const lastOwnMessage = [...conversationMessages]
+                    .reverse()
+                    .find(msg => msg.senderId === user?.id && !msg.deletedAt);
+
+                if (lastOwnMessage) {
+                    setMessage(lastOwnMessage.content || '');
+                    setEditingMessageId(lastOwnMessage.id);
+                    inputRef.current?.focus();
+                }
+            }
+        };
+
+        document.addEventListener('keydown', handleGlobalKeyDown);
+        return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+    }, [conversationMessages, user, message]);
+
     // Auto-resize textarea
     useEffect(() => {
         if (inputRef.current) {
@@ -226,7 +261,7 @@ export function ChatView({ conversationId }: Props) {
         }, 500);
     };
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (!message.trim() || !isOnline) return; // Block send when offline
 
         // Stop typing indicator
@@ -236,7 +271,19 @@ export function ChatView({ conversationId }: Props) {
             wsClient.setTyping(conversationId, false);
         });
 
-        sendMessage(conversationId, message.trim());
+        // PHASE 7.5: Handle editing vs sending
+        if (editingMessageId) {
+            try {
+                await api.editMessage(editingMessageId, message.trim());
+                setEditingMessageId(null);
+            } catch (err) {
+                console.error('Edit failed', err);
+                addToast({ type: 'error', message: 'Failed to edit message' });
+            }
+        } else {
+            sendMessage(conversationId, message.trim());
+        }
+
         setMessage('');
         setShowAiMenu(false);
         // Reset height
@@ -571,6 +618,18 @@ export function ChatView({ conversationId }: Props) {
                     </>
                 )}
             </div>
+
+            {/* PHASE 7.5: Search Modal */}
+            {showSearch && (
+                <SearchModal
+                    conversationId={conversationId}
+                    onClose={() => setShowSearch(false)}
+                    onSelectMessage={(messageId) => {
+                        // Scroll to message (simple implementation)
+                        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                />
+            )}
         </div>
     );
 }
