@@ -318,6 +318,15 @@ export function ChatView({ conversationId }: Props) {
         draftStorage.saveDraft(conversationId, newValue);
     };
 
+    // PHASE 8.4: Clear typing on blur
+    const handleInputBlur = () => {
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        if (stopTypingTimeoutRef.current) clearTimeout(stopTypingTimeoutRef.current);
+        import('../../lib/ws').then(({ wsClient }) => {
+            wsClient.setTyping(conversationId, false);
+        });
+    };
+
     const handleRetry = (messageId: string) => {
         retryMessage(conversationId, messageId);
     };
@@ -571,6 +580,7 @@ export function ChatView({ conversationId }: Props) {
                                 value={message}
                                 onChange={handleInputChange}
                                 onKeyDown={handleKeyDown}
+                                onBlur={handleInputBlur}
                                 rows={1}
                             />
 
