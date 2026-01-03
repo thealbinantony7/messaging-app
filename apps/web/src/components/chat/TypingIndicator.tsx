@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useChatStore } from '../../stores/chat';
 import { useAuthStore } from '../../stores/auth';
 import './TypingIndicator.css';
@@ -33,27 +33,41 @@ export function TypingIndicator({ conversationId }: Props) {
         return () => clearTimeout(timeout);
     }, [typingUserIds]);
 
-    // Filter out current user
-    const otherUsersTyping = visibleTypingIds.filter((id) => id !== user?.id);
+    // PHASE 8.7: Memoized typing text to avoid re-renders
+    const displayText = useMemo(() => {
+        // Filter out current user and inactive members
+        const activeTypingUsers = visibleTypingIds.filter((id) => {
+            if (id === user?.id) return false; // Exclude self
 
-    if (otherUsersTyping.length === 0) return null;
+            // Find member in conversation
+            const member = conversation?.members.find((m) => m.userId === id);
+            if (!member) return false; // Not a member
+            if (!member.joinedAt) return false; // Left the group
 
-    // Get typing user names
-    const typingMembers = conversation?.members
-        .filter((m) => otherUsersTyping.includes(m.userId))
-        .map((m) => m.user.displayName || m.user.email.split('@')[0]) || [];
+            return true;
+        });
 
-    if (typingMembers.length === 0) return null;
+        if (activeTypingUsers.length === 0) return null;
 
-    // Format display text
-    let displayText: string;
-    if (typingMembers.length === 1) {
-        displayText = `${typingMembers[0]} is typing…`;
-    } else if (typingMembers.length === 2) {
-        displayText = `${typingMembers[0]}, ${typingMembers[1]} are typing…`;
-    } else {
-        displayText = `${typingMembers[0]} and others are typing…`;
-    }
+        // Get typing user names
+        const typingNames = conversation?.members
+            .filter((m) => activeTypingUsers.includes(m.userId))
+            .map((m) => m.user.displayName || m.user.email.split('@')[0]) || [];
+
+        if (typingNames.length === 0) return null;
+
+        // PHASE 8.7: WhatsApp-style formatting
+        if (typingNames.length === 1) {
+            return `${typingNames[0]} is typing…`;
+        } else if (typingNames.length === 2) {
+            return `${typingNames[0]} and ${typingNames[1]} are typing…`;
+        } else {
+            // 3+ users: show first name + "and others"
+            return `${typingNames[0]} and others are typing…`;
+        }
+    }, [visibleTypingIds, conversation, user?.id]);
+
+    if (!displayText) return null;
 
     return (
         <div className="typing-indicator">
