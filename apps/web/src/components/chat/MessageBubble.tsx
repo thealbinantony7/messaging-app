@@ -48,18 +48,18 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
     const renderStatus = () => {
         if (!isOwn) return null;
 
-        // PHASE 6.5: CRITICAL FIX - Always derive status from message fields
-        // The 'status' prop is only set for pending messages
-        // For persisted messages, we MUST derive from deliveredAt/readAt
+        // PHASE 9.8: CRITICAL FIX - Respect passed status prop for groups
+        // The status prop contains aggregated group read state from ChatView
+        // For groups, message.readAt doesn't exist - we MUST use the passed status
         let statusToShow: MessageStatus | 'sending' = 'sent';
 
         if (status) {
-            // Pending message (sending/failed)
+            // Use passed status (includes pending messages AND group aggregation)
             statusToShow = status;
         } else {
-            // Persisted message - derive from backend fields
+            // Fallback: derive from backend fields (DMs only, or if no status passed)
             if (conversation?.type === 'channel') {
-                statusToShow = 'sent'; // Channels never show delivery
+                statusToShow = 'sent';
             } else if (message.readAt) {
                 statusToShow = 'read';
             } else if (message.deliveredAt) {

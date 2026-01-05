@@ -149,8 +149,10 @@ export function ChatView({ conversationId }: Props) {
     // PHASE 8.1: Load draft on conversation change
     useEffect(() => {
         const draft = draftStorage.loadDraft(conversationId);
-        if (draft && !editingMessageId) {
-            setMessage(draft);
+        // PHASE 9.8: Always set message state (empty string if no draft)
+        // This ensures input clears when switching to conversation with no draft
+        if (!editingMessageId) {
+            setMessage(draft || '');
         }
     }, [conversationId, editingMessageId]);
 
@@ -169,11 +171,12 @@ export function ChatView({ conversationId }: Props) {
         };
     }, [conversationId]);
 
-    // Scroll to bottom - instant on conversation change, smooth for new messages
+    // PHASE 9.8: Scroll to bottom - synchronous layout effect for deterministic behavior
+    // useLayoutEffect runs synchronously after DOM mutations, preventing race conditions
     const prevConversationId = useRef(conversationId);
     const prevMessageCount = useRef(0);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         const totalMessages = conversationMessages.length + pending.length;
 
         // Instant scroll always for stability
