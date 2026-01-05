@@ -83,44 +83,54 @@ export function ChatView({ conversationId }: Props) {
     }, []);
 
     // PHASE 8.6-8.8: WhatsApp-style group read receipts & delivery visibility
+    // PHASE 10: Cursor-Based Read Receipts (WhatsApp-style)
+    // - DMs: message.readAt || member.cursor >= message.time
+    // - Groups: ALL active members (excluding self) have cursor >= message.time
     const getMessageStatus = (message: MessageWithDetails): 'sent' | 'delivered' | 'read' => {
         // Skip channels - no delivery receipts for channels
         if (conversation?.type === 'channel') return 'sent';
+        if (!conversation) return 'sent';
 
-        // For 1:1 chats, use simple logic (UNCHANGED)
-        if (conversation?.type === 'dm') {
+        // 1. Delivery Check (Common)
+        // If not delivered yet (and not strictly ordered locally as sent), it's just 'sent'
+        if (!message.deliveredAt) return 'sent';
+
+        // 2. DM Logic
+        if (conversation.type === 'dm') {
             if (message.readAt) return 'read';
-            if (message.deliveredAt) return 'delivered';
-            return 'sent';
+
+            // Cursor fallback: Check other member's cursor
+            const otherMember = conversation.members.find(m => m.userId !== user?.id);
+            if (otherMember?.lastReadAt && new Date(otherMember.lastReadAt).getTime() >= new Date(message.createdAt).getTime()) {
+                return 'read';
+            }
+            return 'delivered';
         }
 
-        // PHASE 8.8: For group chats, WhatsApp-style delivery & read visibility
-        // ✓ = sent, ✓✓ grey = delivered (any/all), ✓✓ blue = read by ALL
-        if (conversation?.type === 'group') {
-            // If message not delivered yet
-            if (!message.deliveredAt) return 'sent';
-
+        // 3. Group Logic ("Read by Everyone")
+        if (conversation.type === 'group') {
             // Get active members (exclude sender, exclude left members)
             const activeMembers = conversation.members.filter(
-                (m) => m.userId !== message.senderId && m.joinedAt // joinedAt exists = active member
+                (m) => m.userId !== message.senderId && m.joinedAt
             );
 
             // If no other members, mark as delivered
             if (activeMembers.length === 0) return 'delivered';
 
             // Check if ALL active members have read this message
-            // Use seenReceipts from store (populated by read_receipt WebSocket events)
-            const seenByUsers = useChatStore.getState().seenReceipts[message.id] || new Set();
+            // STRICT RULE: All members must have a cursor >= message timestamp
+            const allMembersRead = activeMembers.every((member) => {
+                // If member has no cursor (never read), they block blue ticks
+                if (!member.lastReadAt) return false;
 
-            const allMembersRead = activeMembers.every((m) => seenByUsers.has(m.userId));
+                // Compare timestamps
+                return new Date(member.lastReadAt).getTime() >= new Date(message.createdAt).getTime();
+            });
 
             if (allMembersRead) return 'read';
             return 'delivered'; // Partial reads = grey ticks
         }
 
-        // Fallback: Backend-authoritative (original logic)
-        if (message.readAt) return 'read';
-        if (message.deliveredAt) return 'delivered';
         return 'sent';
     };
 

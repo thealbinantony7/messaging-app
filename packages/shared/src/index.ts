@@ -53,6 +53,7 @@ export interface ConversationMember {
     userId: UUID;
     role: MemberRole;
     lastReadMessageId: UUID | null;
+    lastReadAt: ISODateString | null;
     mutedUntil: ISODateString | null;
     joinedAt: ISODateString;
 }

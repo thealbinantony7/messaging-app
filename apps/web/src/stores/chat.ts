@@ -51,9 +51,7 @@ interface ChatState {
     deliveryReceipts: Record<string, Set<string>>; // messageId -> Set of userIds who received it
     setDeliveryReceipt: (messageId: string, userId: string) => void;
 
-    // Seen receipts (read receipts)
-    seenReceipts: Record<string, Set<string>>; // messageId -> Set of userIds who have seen it
-    setSeenReceipt: (messageId: string, userId: string) => void;
+
 
     // Reactions
     reactions: Record<string, Reaction[]>; // messageId -> Reaction[]
@@ -229,17 +227,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         updated.add(userId);
         return {
             deliveryReceipts: { ...state.deliveryReceipts, [messageId]: updated },
-        };
-    }),
-
-    // Seen receipts
-    seenReceipts: {},
-    setSeenReceipt: (messageId, userId) => set((state) => {
-        const current = state.seenReceipts[messageId] || new Set();
-        const updated = new Set(current);
-        updated.add(userId);
-        return {
-            seenReceipts: { ...state.seenReceipts, [messageId]: updated },
         };
     }),
 
@@ -776,12 +763,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     // PHASE 8.6: Backend-authoritative read receipt handler
     // Updates message readAt AND tracks per-user reads for group chats
+    // PHASE 10: Cursor-Based Read Receipts
+    // Updates message readAt AND updates user's read cursor
     handleReadReceipt: (payload) => {
         const { messageId, conversationId, readAt, userId } = payload;
         if (!readAt) return;
 
         set((state) => {
-            // Update message readAt timestamp
+            // 1. Update message readAt (important for DMs)
             const updatedMessages = {
                 ...state.messages,
                 [conversationId]: (state.messages[conversationId] || []).map(m =>
@@ -789,21 +778,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 )
             };
 
-            // PHASE 8.6: Track per-user reads for group chats
-            const updatedSeenReceipts = { ...state.seenReceipts };
+            // 2. Update Member Cursor (Critical for Groups)
+            // If we know the user who read it, update their cursor in the conversation members list
+            let updatedConversations = state.conversations;
             if (userId) {
-                const current = updatedSeenReceipts[messageId] || new Set();
-                const updated = new Set(current);
-                updated.add(userId);
-                updatedSeenReceipts[messageId] = updated;
+                updatedConversations = state.conversations.map(c => {
+                    if (c.id === conversationId) {
+                        return {
+                            ...c,
+                            members: c.members.map(m => {
+                                if (m.userId === userId) {
+                                    return {
+                                        ...m,
+                                        lastReadMessageId: messageId,
+                                        lastReadAt: readAt
+                                    };
+                                }
+                                return m;
+                            })
+                        };
+                    }
+                    return c;
+                });
             }
 
             return {
                 messages: updatedMessages,
-                seenReceipts: updatedSeenReceipts
+                conversations: updatedConversations
             };
         });
-        console.log('[PHASE8.6] Read receipt', { messageId, userId, readAt });
+        console.log('[PHASE10] Read cursor updated', { userId, messageId, readAt });
     },
 }));
-
