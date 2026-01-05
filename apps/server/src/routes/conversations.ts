@@ -252,8 +252,8 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
             }
 
             // Get last message in conversation
-            const lastMessage = await queryOne<{ id: string }>(
-                'SELECT id FROM messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 1',
+            const lastMessage = await queryOne<{ id: string, created_at: string }>(
+                'SELECT id, created_at FROM messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 1',
                 [conversationId]
             );
 
@@ -265,6 +265,20 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
                      WHERE conversation_id = $2 AND user_id = $3`,
                     [lastMessage.id, conversationId, userId]
                 );
+
+                // PHASE 10: Broadcast read receipt for real-time updates
+                // We use message timestamp as the read cursor to match DB consistency
+                const redisPub = (await import('../lib/redis.js')).redisPub;
+                await redisPub.publish(`conv:${conversationId}`, JSON.stringify({
+                    type: 'read_receipt',
+                    payload: {
+                        conversationId,
+                        userId,
+                        messageId: lastMessage.id,
+                        readAt: lastMessage.created_at
+                    }
+                }));
+
                 console.log('[MARK_READ] Success', { conversationId, userId, lastMessageId: lastMessage.id });
             } else {
                 console.log('[MARK_READ] No messages in conversation', { conversationId });
