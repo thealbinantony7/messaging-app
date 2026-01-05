@@ -313,9 +313,9 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
             onTouchEnd={handleTouchEnd}
             onTouchMove={handleTouchMove}
         >
-            {/* Desktop Action Menu Trigger */}
+            {/* PHASE 9.9: Desktop Action Menu Trigger - moved to TOP-RIGHT to avoid tick collision */}
             <button
-                className={`absolute bottom-1 right-1 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ${isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground' : 'bg-black/5 hover:bg-black/10 text-foreground'} md:block hidden`}
+                className={`absolute top-1 right-1 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity ${isOwn ? 'bg-primary-foreground/10 hover:bg-primary-foreground/20 text-primary-foreground' : 'bg-black/5 hover:bg-black/10 text-foreground'} md:block hidden`}
                 onClick={(e) => {
                     e.stopPropagation();
                     setShowMenu(true);
@@ -414,8 +414,8 @@ export const MessageBubble = memo(function MessageBubble({ message, isOwn, statu
                 {renderContent()}
             </div>
 
-            {/* Footer */}
-            <div className={`flex items-center justify-end gap-1 mt-1 text-[11px] ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+            {/* PHASE 9.9: Footer with z-index protection to ensure ticks always visible */}
+            <div className={`flex items-center justify-end gap-1 mt-1 text-[11px] ${isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'}`} style={{ position: 'relative', zIndex: 2 }}>
                 {message.editedAt && !isDeleted && <span>edited</span>}
                 <span>{formatTime(message.createdAt)}</span>
                 {renderStatus()}

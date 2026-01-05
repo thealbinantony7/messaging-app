@@ -227,6 +227,8 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
         const { id: conversationId } = request.params;
         const userId = (request.user as JwtPayload).id;
 
+        console.log('[MARK_READ] Request received', { conversationId, userId, timestamp: new Date().toISOString() });
+
         try {
             // Verify user is member
             const membership = await queryOne(
@@ -235,6 +237,7 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
             );
 
             if (!membership) {
+                console.log('[MARK_READ] Forbidden - user not a member', { conversationId, userId });
                 return reply.code(403).send({ error: 'Forbidden' });
             }
 
@@ -252,11 +255,14 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
                      WHERE conversation_id = $2 AND user_id = $3`,
                     [lastMessage.id, conversationId, userId]
                 );
+                console.log('[MARK_READ] Success', { conversationId, userId, lastMessageId: lastMessage.id });
+            } else {
+                console.log('[MARK_READ] No messages in conversation', { conversationId });
             }
 
             return { success: true };
         } catch (error) {
-            console.error('Failed to mark conversation as read:', error);
+            console.error('[MARK_READ] Error', { conversationId, userId, error });
             return reply.code(500).send({ error: 'Failed to mark as read' });
         }
     });

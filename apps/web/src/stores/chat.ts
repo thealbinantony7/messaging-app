@@ -91,7 +91,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ),
     })),
     // Phase 9.5: Mark as read implementation (Optimistic)
+    // Phase 9.9: Mark as read with optimistic update and rollback
     markConversationAsRead: async (conversationId: string) => {
+        // Store original unread count for rollback
+        const originalUnreadCount = get().conversations.find(c => c.id === conversationId)?.unreadCount || 0;
+
         // Optimistic update: clear unread immediately
         set((state) => ({
             conversations: state.conversations.map((c) =>
@@ -101,10 +105,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         try {
             await import('../lib/api').then(({ api }) => api.markConversationAsRead(conversationId));
+            console.log('[MARK_READ] Success', { conversationId });
         } catch (error) {
-            console.error('Failed to mark conversation as read', error);
-            // We could revert here, but for read status it's better to stay cleared
-            // and let the next refetch sync it if it failed.
+            console.error('[MARK_READ] Failed, reverting optimistic update', { conversationId, error });
+            // REVERT: Restore original unread count to maintain backend authority
+            set((state) => ({
+                conversations: state.conversations.map((c) =>
+                    c.id === conversationId ? { ...c, unreadCount: originalUnreadCount } : c
+                ),
+            }));
         }
     },
     removeConversation: (id) => set((state) => ({
@@ -630,7 +639,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             let newConversations = [...state.conversations];
 
             if (conversationIndex !== -1) {
-                const conversation = newConversations[conversationIndex];
+                const conversation = newConversations[conversationIndex]!;
 
                 // PHASE 9.6: Monotonic Unread Logic
                 // If active, unreadCount = 0 (and stay 0).
@@ -660,7 +669,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
                 // Move to top and update
                 newConversations.splice(conversationIndex, 1);
-                newConversations.unshift(updatedConversation);
+                newConversations.unshift(updatedConversation as ConversationWithMembers);
             }
 
             return {
