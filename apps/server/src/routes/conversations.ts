@@ -58,8 +58,15 @@ export const conversationRoutes: FastifyPluginAsync = async (fastify) => {
                         FROM messages m
                         LEFT JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = $1
                         WHERE m.conversation_id = c.id 
-                        AND (cm.last_read_msg_id IS NULL OR m.created_at > (SELECT created_at FROM messages WHERE id = cm.last_read_msg_id))
                         AND m.sender_id != $1
+                        AND (
+                            cm.last_read_msg_id IS NULL 
+                            OR m.created_at > (SELECT created_at FROM messages WHERE id = cm.last_read_msg_id)
+                            OR (
+                                m.created_at = (SELECT created_at FROM messages WHERE id = cm.last_read_msg_id)
+                                AND m.id > cm.last_read_msg_id
+                            )
+                        )
                     ) as "unreadCount",
                     false as "isPinned",
                     NULL as "pinnedAt"
